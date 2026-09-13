@@ -34,6 +34,7 @@ type Cue = {
   fit?: { speed: number; duration: number; overflow: number };
 };
 type Project = {
+  proxy_file?: string | null;
   last_job?: Job | null;
   id: string;
   revision: number;
@@ -132,6 +133,10 @@ function App() {
   const dirtyRef = useRef(dirty);
   const saving = useRef<Promise<Project | null> | null>(null);
   const oneShot = useRef<HTMLAudioElement | null>(null);
+  const playhead = useRef<HTMLDivElement>(null);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const replaceVideo = useRef<HTMLInputElement>(null);
+  const replaceSrt = useRef<HTMLInputElement>(null);
   latest.current = project;
   dirtyRef.current = dirty;
   const virtual = useVirtualizer({
@@ -163,7 +168,7 @@ function App() {
       api<Job>("/jobs/" + job.id)
         .then(async (next) => {
           setJob(next);
-          if (next.status === "complete" && project && !dirtyRef.current) {
+          if ((next.status === "complete" || (next.kind === "generate" && next.status === "running")) && project && !dirtyRef.current) {
             const p = await api<Project>("/projects/" + project.id);
             if (!dirtyRef.current && latest.current?.id === p.id) setProject(p);
           }
@@ -172,6 +177,19 @@ function App() {
     }, 1000);
     return () => clearInterval(id);
   }, [job?.id, job?.status, project?.id, dirty]);
+  useEffect(() => {
+    if (page !== "editor" || !project) return;
+    let frame = 0;
+    let lastLabel = 0;
+    const tick = (now: number) => {
+      const t = video.current?.currentTime || 0;
+      if (playhead.current) playhead.current.style.left = `${Math.min(100, t / project.media.duration * 100)}%`;
+      if (now - lastLabel >= 100) { setTime(t); lastLabel = now; }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [page, project?.id, project?.media.duration]);
   useEffect(() => {
     const before = (e: BeforeUnloadEvent) => {
       if (dirty) {
@@ -191,7 +209,8 @@ function App() {
     if (!project) return;
     setHistory((h) => [...h.slice(-39), project]);
     setFuture([]);
-    setProject({ ...project, ...change });
+    const cues = change.voice !== undefined ? project.cues.map(c => c.voice ? c : {...c, ready: false}) : project.cues;
+    setProject({ ...project, cues, ...change });
     setDirty(true);
     setPreview(false);
     audio.current?.pause();
@@ -264,12 +283,29 @@ function App() {
       setJob(p.last_job || null);
       setSelected("");
       setPreview(false);
+      setVideoFailed(false);
     } catch (e) {
       setError((e as Error).message);
     }
   }
   function file(path: string, download = false) {
     return `/api/projects/${project?.id}/files/${path}${download ? "?download=true" : ""}`;
+  }
+  async function replaceSource(kind: "video" | "srt", chosen?: File) {
+    if (!chosen) return;
+    if (kind === "srt" && !confirm("Thay SRT sẽ thay toàn bộ danh sách câu hiện tại. Tiếp tục?")) return;
+    setBusy(true);
+    try {
+      const p = await save();
+      if (!p) return;
+      const body = new FormData();
+      body.append("revision", String(p.revision));
+      body.append(kind, chosen);
+      const next = await api<Project>(`/projects/${p.id}/source`, {method:"POST", body});
+      setProject(next); setHistory([]); setFuture([]); setJob(null); setPreview(false); setVideoFailed(false);
+      audio.current?.pause();
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); }
   }
   function seek(t: number, id?: string) {
     if (video.current) video.current.currentTime = t;
@@ -302,9 +338,15 @@ function App() {
   }
   const validOutput =
     job?.status === "complete" &&
+    ["mp3", "mkv"].includes(job.kind) &&
     job.revision === project?.revision &&
     !dirty &&
     job.file;
+  const readyCount = project?.cues.filter(c => c.ready).length || 0;
+  const totalCount = project?.cues.length || 0;
+  useEffect(() => {
+    if (!validOutput) { setPreview(false); audio.current?.pause(); }
+  }, [validOutput]);
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -527,11 +569,11 @@ function App() {
                 </button>
                 <button
                   className="generate"
-                  disabled={busy || active(job)}
+                  disabled={busy || active(job) || readyCount === totalCount}
                   onClick={() => run("generate")}
                 >
                   <AudioLines size={16} />
-                  Tạo giọng tất cả
+                  Tạo giọng tất cả ({readyCount}/{totalCount} đã tạo)
                 </button>
                 <div className="export-wrap">
                   <button className="primary" onClick={() => setMenu(!menu)}>
@@ -585,7 +627,8 @@ function App() {
                 <video
                   ref={video}
                   controls
-                  src={file(project.video_file)}
+                    src={file(project.proxy_file || project.video_file)}
+                    onLoadedData={() => setVideoFailed(false)}
                   muted={preview}
                   onTimeUpdate={() => {
                     const t = video.current?.currentTime || 0;
@@ -608,27 +651,29 @@ function App() {
                     if (preview && audio.current)
                       audio.current.currentTime = video.current!.currentTime;
                   }}
-                  onError={() =>
-                    setError(
-                      "Trình duyệt chưa phát được codec video này. Có thể xử lý và xuất file; cần proxy preview cho codec này.",
-                    )
-                  }
+                    onError={() => setVideoFailed(true)}
                 />
                 <button
-                  className="preview-button"
+                  className={"preview-button" + (preview ? " is-dubbed" : "")}
+                  aria-pressed={preview}
                     disabled={busy || active(job)}
                     onClick={() => {
+                      if (preview) { setPreview(false); audio.current?.pause(); return; }
                       if (!validOutput) { void run("mp3"); return; }
                     setPreview(true);
                     if (video.current && audio.current) {
                       audio.current.currentTime = video.current.currentTime;
-                      video.current.play();
+                      void audio.current.play().catch(e => setError(e.message));
+                      void video.current.play().catch(e => setError(e.message));
                     }
                   }}
                 >
                   <Play size={15} />
-                  Xem trước bản lồng tiếng
+                  {preview ? "Đang xem bản lồng tiếng · Chuyển về bản gốc" : "Xem trước bản lồng tiếng"}
                 </button>
+                <p className={"playback-mode" + (preview ? " is-dubbed" : "")} role="status">
+                  {preview ? "Âm thanh: bản lồng tiếng đã trộn" : "Âm thanh: bản gốc của video"}
+                </p>
                 <audio
                   ref={audio}
                   src={
@@ -638,10 +683,17 @@ function App() {
                 <p className="hint">
                   Bấm vào một câu hoặc timeline để tua tới đúng chỗ.
                 </p>
+                {videoFailed && <button disabled={busy || active(job)} onClick={() => void run("proxy")}>Tạo video tương thích để xem trước</button>}
                 <div className="source-info">
                   <Film size={16} />
                   <span>{project.video_name}</span>
                   <small>{stamp(project.media.duration)}</small>
+                </div>
+                <div className="speed-row">
+                  <button disabled={busy || active(job)} onClick={() => replaceVideo.current?.click()}>Thay video</button>
+                  <button disabled={busy || active(job)} onClick={() => replaceSrt.current?.click()}>Nhập SRT khác</button>
+                  <input hidden type="file" ref={replaceVideo} accept=".mp4,.mkv,.avi,.mov,.webm,.m4v" onChange={e => {void replaceSource("video", e.target.files?.[0]); e.target.value="";}} />
+                  <input hidden type="file" ref={replaceSrt} accept=".srt" onChange={e => {void replaceSource("srt", e.target.files?.[0]); e.target.value="";}} />
                 </div>
                 <label>
                   Giọng chung
@@ -654,6 +706,8 @@ function App() {
                     ))}
                   </select>
                 </label>
+                <button disabled={busy || active(job)} onClick={() => void run("sample")}>Nghe mẫu giọng chung</button>
+                {job?.kind === "sample" && job.status === "complete" && job.revision === project.revision && job.file && <audio controls src={file(job.file)} />}
                 <div className="speed-row">
                   <label>Tốc độ chung</label>
                   <input
@@ -935,10 +989,8 @@ function App() {
                     </button>
                   ))}
                   <div
+                    ref={playhead}
                     className="playhead"
-                    style={{
-                      left: `${(time / project.media.duration) * 100}%`,
-                    }}
                   />
                 </div>
               </div>
@@ -953,7 +1005,9 @@ function App() {
                 <span>{job.message}</span>
                 {active(job) && (
                   <>
-                    <progress value={job.done} max={job.total || 1} />
+                    <div className="smooth-progress" role="progressbar" aria-label="Tiến trình tạo giọng" aria-valuemin={0} aria-valuemax={job.total || 1} aria-valuenow={job.done}>
+                      <div style={{transform: `scaleX(${Math.min(1, job.done / (job.total || 1))})`}} />
+                    </div>
                     <small>
                       {job.done}/{job.total}
                     </small>

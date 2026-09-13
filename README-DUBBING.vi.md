@@ -16,7 +16,7 @@ Trình duyệt mở tại http://127.0.0.1:7861. Để dừng, nhấn Ctrl+C tro
 ## Sử dụng
 
 1. Tạo dự án, nhập video và SRT UTF-8/UTF-8 BOM.
-2. Chọn giọng chung; sửa văn bản, giọng hoặc tốc độ riêng từng câu nếu cần. Thay đổi tự lưu sau khoảng 1,2 giây.
+2. Chọn giọng chung, bấm **Nghe mẫu giọng chung** rồi phát mẫu khi tạo xong; sửa văn bản, giọng hoặc tốc độ riêng từng câu nếu cần. Thay đổi tự lưu sau khoảng 1,2 giây.
 3. Tạo giọng tất cả hoặc từng câu. Nghe câu bằng nút phát; chọn câu hoặc timeline để tua video.
 4. Chọn cách trộn âm gốc. Nếu có nhiều track gốc, chọn đúng track trước khi xuất.
 5. Chọn **Tải về → MP3** hoặc **MKV hai track**. Xem trước sử dụng bản âm thanh đã trộn; lần bấm đầu khi chưa có bản xuất sẽ tạo bản MP3.
@@ -60,9 +60,9 @@ npm run build
 
 ## Phần còn lại của kế hoạch
 
-- Proxy xem trước cho codec trình duyệt không phát được; hiện video đó vẫn có thể xử lý/xuất nếu công cụ hỗ trợ.
-- Thay video/SRT trong dự án có sẵn; hiện tạo dự án mới để thay nguồn.
-- Nghe mẫu giọng độc lập trước khi tạo câu; hiện nghe từng câu sau khi tạo giọng.
+- Đã bổ sung proxy H.264 khi trình duyệt không phát được video; nguồn xuất MKV vẫn là video gốc. Proxy giữ lại qua chỉnh sửa lời và tạo lại khi thay video.
+- Đã bổ sung thay video/SRT trong dự án. SRT mới thay danh sách câu sau xác nhận; file lỗi không thay đổi nguồn hiện có. File video nguồn cũ còn giữ trên đĩa tới khi xóa dự án.
+- Đã bổ sung nghe mẫu giọng chung ngay trong Lồng tiếng.
 - Kiểm thử phim dài, timestamp lệch/phức tạp, dung lượng đĩa thấp, kiểm thử Docker/Linux và tinh chỉnh giao diện theo ảnh.
 - Hai màn hình quản lý giọng và từ điển phát âm để giai đoạn sau theo phạm vi đã chốt.
 

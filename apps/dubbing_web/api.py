@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import json
 from pathlib import Path
 import shutil
+from uuid import uuid4
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
@@ -18,7 +19,7 @@ from .media import inspect_video
 
 
 class JobRequest(BaseModel):
-    kind: Literal["generate", "mp3", "mkv"] = "generate"
+    kind: Literal["generate", "mp3", "mkv", "proxy", "sample"] = "generate"
     cue_id: str | None = None
     allow_overlap: bool = False
 
@@ -68,6 +69,8 @@ def create_app(settings=None):
     def describe(project):
         import soundfile as sf
         root = store.directory(project["id"])
+        proxies = [j for j in jobs.items.values() if j["project"] == project["id"] and j["kind"] == "proxy" and j["status"] == "complete" and j.get("video_file") == project["video_file"]]
+        project["proxy_file"] = proxies[-1]["file"] if proxies else None
         cues = sorted(project["cues"], key=lambda c: c["start"])
         for i, cue in enumerate(cues):
             key = voice_key(cue, project)
@@ -144,6 +147,41 @@ def create_app(settings=None):
         p["revision"] += 1
         return describe(store.save(p, expected=values.revision))
 
+    @app.post("/api/projects/{id}/source")
+    def replace_source(id: str, revision: int = Form(...), video: UploadFile | None = File(None), srt: UploadFile | None = File(None)):
+        with jobs.lock:
+            p = store.get(id)
+            if p["revision"] != revision:
+                raise Conflict("Dự án đã thay đổi. Mở lại trước khi thay nguồn.")
+            if any(j["project"] == id and j["status"] in ("queued", "running") for j in jobs.items.values()):
+                raise ValueError("Dừng tác vụ trước khi thay nguồn.")
+            if not video and not srt:
+                raise ValueError("Chọn video hoặc SRT mới.")
+            new_path = None
+            try:
+                if srt:
+                    raw = srt.file.read(10 * 1024 * 1024 + 1)
+                    if len(raw) > 10 * 1024 * 1024:
+                        raise ValueError("SRT tối đa 10 MB.")
+                    p["cues"] = parse_srt(raw)
+                if video:
+                    suffix = Path(video.filename or "").suffix.lower()
+                    if suffix not in (".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"):
+                        raise ValueError("Định dạng video chưa hỗ trợ.")
+                    new_path = store.directory(id) / ("source-" + uuid4().hex + suffix)
+                    with new_path.open("wb") as target:
+                        shutil.copyfileobj(video.file, target, length=1024*1024)
+                    info = inspect_video(new_path)
+                    selected = next((a for a in info["audio_tracks"] if a["default"]), next(iter(info["audio_tracks"]), None))
+                    p.update(video_file=new_path.name, video_name=Path(video.filename).name, media=info,
+                             audio_index=selected["index"] if selected else None)
+                p["revision"] += 1
+                return describe(store.save(p, expected=revision))
+            except Exception:
+                if new_path:
+                    new_path.unlink(missing_ok=True)
+                raise
+
     @app.delete("/api/projects/{id}")
     def delete(id: str):
         store.get(id)
@@ -185,7 +223,8 @@ def create_app(settings=None):
             if not job_path.exists():
                 raise HTTPException(409, "Bản xuất chưa hoàn thành.")
             record = json.loads(job_path.read_text(encoding="utf-8"))
-            if record["status"] != "complete" or record["revision"] != p["revision"]:
+            matches = record.get("video_file") == p["video_file"] if record.get("kind") == "proxy" else record["revision"] == p["revision"]
+            if record["status"] != "complete" or not matches:
                 raise HTTPException(409, "Bản xuất không còn khớp với dự án. Hãy xuất lại.")
         return FileResponse(path, filename=(p["name"] + path.suffix) if download else None)
 

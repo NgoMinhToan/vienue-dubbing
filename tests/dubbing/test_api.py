@@ -46,3 +46,35 @@ def test_output_is_unavailable_after_edit(tmp_path):
         assert client.get(url).status_code==200
         client.put('/api/projects/'+p['id'],json=p)
         assert client.get(url).status_code==409
+
+
+def test_replace_srt_is_atomic_and_checks_revision(tmp_path):
+    app = create_app(Settings(tmp_path))
+    with TestClient(app) as client:
+        p, root = seed(app)
+        url = '/api/projects/' + p['id'] + '/source'
+        bad = client.post(url, data={'revision': 1}, files={'srt': ('bad.srt', b'bad')})
+        assert bad.status_code == 400
+        assert app.state.store.get(p['id'])['cues'] == p['cues']
+        content = '1\n00:00:01,000 --> 00:00:02,000\nCâu mới'.encode()
+        result = client.post(url, data={'revision': 1}, files={'srt': ('new.srt', content)})
+        assert result.status_code == 200
+        assert result.json()['revision'] == 2
+        assert result.json()['cues'][0]['text'] == 'Câu mới'
+        assert client.post(url, data={'revision': 1}, files={'srt': ('new.srt', content)}).status_code == 409
+
+
+def test_proxy_survives_text_edit_but_not_source_replacement(tmp_path):
+    app = create_app(Settings(tmp_path))
+    with TestClient(app) as client:
+        p, root = seed(app)
+        dest = root / 'renders' / 'proxy'; dest.mkdir()
+        (dest / 'proxy.mp4').write_bytes(b'test fixture')
+        (dest / 'job.json').write_text(json.dumps({'kind':'proxy', 'status':'complete', 'revision':1, 'video_file':'source.mp4'}))
+        url = '/api/projects/' + p['id'] + '/files/renders/proxy/proxy.mp4'
+        client.put('/api/projects/' + p['id'], json=p)
+        assert client.get(url).status_code == 200
+        current = app.state.store.get(p['id'])
+        current['video_file'] = 'different.mp4'
+        app.state.store.save(current)
+        assert client.get(url).status_code == 409

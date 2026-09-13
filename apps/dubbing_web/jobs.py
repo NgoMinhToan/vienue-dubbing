@@ -68,6 +68,20 @@ class Jobs:
         dest.mkdir()
         (dest / "job.json").write_text(json.dumps(self.public(job), ensure_ascii=False), encoding="utf-8")
         try:
+            if job["kind"] == "proxy":
+                job["message"] = "Tạo video xem trước H.264…"
+                media.run("ffmpeg", ["-v", "error", "-nostdin", "-y", "-i", root / project["video_file"],
+                    "-map", f"0:{project['media']['video_index']}", "-map", "0:a:0?",
+                    "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-preset", "veryfast",
+                    "-crf", "24", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", dest / "proxy.mp4"], job["cancel"])
+                job.update(status="complete", video_file=project["video_file"], file=f"renders/{job['id']}/proxy.mp4", message="Video xem trước đã sẵn sàng.")
+                return
+            if job["kind"] == "sample":
+                job["message"] = "Tạo mẫu giọng " + project["voice"] + "…"
+                wav = self.load_model().infer("Xin chào, đây là giọng đọc mẫu cho bản lồng tiếng của bạn.", voice=project["voice"])
+                sf.write(dest / "sample.wav", wav, 48000)
+                job.update(status="complete", file=f"renders/{job['id']}/sample.wav", message="Mẫu giọng đã sẵn sàng.")
+                return
             cues = sorted(project["cues"], key=lambda c: c["start"])
             selected = [c for c in cues if not cue_id or c["id"] == cue_id]
             if not selected:
