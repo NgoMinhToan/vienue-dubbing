@@ -1,0 +1,13 @@
+# Standalone CPU application; no Gradio, CUDA or remote inference.
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+python-multipart>=0.0.18
+numpy>=1.26,<3
+soundfile>=0.13
+soxr
+sea-g2p>=0.9.1
+onnxruntime>=1.20
+kaldi-native-fbank>=1.20
+tokenizers>=0.20
+huggingface_hub
+librosa>=0.11

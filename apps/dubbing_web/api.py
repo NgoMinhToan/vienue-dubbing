@@ -1,0 +1,195 @@
+from contextlib import asynccontextmanager
+import json
+from pathlib import Path
+import shutil
+from urllib.parse import urlparse
+
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from typing import Literal
+
+from .config import ROOT, Settings, executable
+from .domain import Edit, parse_srt, voice_key, timing
+from .store import Store, Conflict
+from .jobs import Jobs
+from .media import inspect_video
+
+
+class JobRequest(BaseModel):
+    kind: Literal["generate", "mp3", "mkv"] = "generate"
+    cue_id: str | None = None
+    allow_overlap: bool = False
+
+
+def create_app(settings=None):
+    settings = settings or Settings.from_env()
+    store = Store(settings.data)
+    jobs = Jobs(store)
+    presets = json.loads((ROOT / "src/vieneu/assets/voices_v3_turbo.json").read_text(encoding="utf-8"))
+    voices = list(presets["presets"])
+
+    @asynccontextmanager
+    async def lifespan(app):
+        yield
+        jobs.shutdown()
+
+    app = FastAPI(title="VieNeu Dubbing", lifespan=lifespan)
+    app.state.store, app.state.jobs = store, jobs
+
+    @app.middleware("http")
+    async def local_origin(request: Request, call_next):
+        host = request.headers.get("host", "").split(":")[0]
+        allowed = {"localhost", "127.0.0.1", "testserver"}
+        if settings.host not in ("0.0.0.0", "::") and host not in allowed:
+            return JSONResponse({"detail": "Host không hợp lệ."}, 403)
+        origin = request.headers.get("origin")
+        if origin and urlparse(origin).netloc != request.headers.get("host"):
+            return JSONResponse({"detail": "Origin không hợp lệ."}, 403)
+        return await call_next(request)
+
+    @app.exception_handler(KeyError)
+    async def missing(request, exc):
+        return JSONResponse({"detail": "Không tìm thấy dự án hoặc tài nguyên."}, 404)
+
+    @app.exception_handler(Conflict)
+    async def conflict(request, exc):
+        return JSONResponse({"detail": str(exc)}, 409)
+
+    @app.exception_handler(ValueError)
+    async def invalid(request, exc):
+        return JSONResponse({"detail": str(exc)}, 400)
+
+    @app.exception_handler(RuntimeError)
+    async def failure(request, exc):
+        return JSONResponse({"detail": str(exc)}, 503)
+
+    def describe(project):
+        import soundfile as sf
+        root = store.directory(project["id"])
+        cues = sorted(project["cues"], key=lambda c: c["start"])
+        for i, cue in enumerate(cues):
+            key = voice_key(cue, project)
+            path = root / "clips" / (key + ".wav")
+            cue["ready"] = path.exists()
+            if path.exists():
+                end = cues[i+1]["start"] if i+1 < len(cues) else project["media"]["duration"]
+                cue["fit"] = timing(sf.info(path).duration, cue["start"], end, cue.get("speed") or project["speed"], project["auto_fit"], project["fit_limit"])
+                cue["audio"] = "clips/" + key + ".wav"
+        return project
+
+    @app.get("/api/health")
+    def health():
+        tools = {}
+        for name in ("ffmpeg", "ffprobe", "mkvmerge"):
+            try:
+                tools[name] = executable(name)
+            except RuntimeError:
+                tools[name] = None
+        return {"status": "ok", "model": jobs.model_status, "tools": tools, "backend": "CPU · v3 Turbo fp32"}
+
+    @app.get("/api/voices")
+    def get_voices():
+        return [{"id": v, "description": presets["presets"][v].get("description", "")} for v in voices]
+
+    @app.get("/api/projects")
+    def projects():
+        return [{"id": p["id"], "name": p["name"], "count": len(p["cues"]), "updated": p["updated"], "video_name": p["video_name"]} for p in store.list()]
+
+    @app.post("/api/projects")
+    def create(name: str = Form("Lồng tiếng mới"), video: UploadFile = File(...), srt: UploadFile = File(...)):
+        if not name.strip() or len(name) > 200:
+            raise ValueError("Tên dự án không hợp lệ.")
+        raw = srt.file.read(10 * 1024 * 1024 + 1)
+        if len(raw) > 10 * 1024 * 1024:
+            raise ValueError("SRT quá lớn (tối đa 10 MB).")
+        cues = parse_srt(raw)
+        id, root = store.create()
+        try:
+            suffix = Path(video.filename or "").suffix.lower()
+            if suffix not in (".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"):
+                raise ValueError("Định dạng video chưa hỗ trợ.")
+            path = root / ("source" + suffix)
+            with path.open("wb") as target:
+                shutil.copyfileobj(video.file, target, length=1024*1024)
+            info = inspect_video(path)
+            selected = next((a for a in info["audio_tracks"] if a["default"]), next(iter(info["audio_tracks"]), None))
+            project = {"id": id, "revision": 1, "name": name, "voice": "Kim Thanh" if "Kim Thanh" in voices else voices[0],
+                       "speed": 1, "auto_fit": True, "fit_limit": 1.6, "background": "duck",
+                       "audio_index": selected["index"] if selected else None,
+                       "video_name": Path(video.filename).name, "video_file": path.name, "media": info, "cues": cues}
+            return describe(store.save(project))
+        except Exception:
+            shutil.rmtree(root)
+            raise
+
+    @app.get("/api/projects/{id}")
+    def get(id: str):
+        project = describe(store.get(id))
+        saved = [j for j in jobs.items.values() if j["project"] == id and j["revision"] == project["revision"]]
+        project["last_job"] = jobs.public(saved[-1]) if saved else None
+        return project
+
+    @app.put("/api/projects/{id}")
+    def edit(id: str, values: Edit):
+        p = store.get(id)
+        if values.voice not in voices or any(c.voice and c.voice not in voices for c in values.cues):
+            raise ValueError("Giọng không hợp lệ.")
+        if values.audio_index not in [a["index"] for a in p["media"]["audio_tracks"]] + ([None] if not p["media"]["audio_tracks"] else []):
+            raise ValueError("Track âm gốc không hợp lệ.")
+        if len({c.id for c in values.cues}) != len(values.cues):
+            raise ValueError("ID câu bị trùng.")
+        p.update(values.model_dump())
+        p["revision"] += 1
+        return describe(store.save(p, expected=values.revision))
+
+    @app.delete("/api/projects/{id}")
+    def delete(id: str):
+        store.get(id)
+        if any(j["project"] == id and j["status"] in ("queued", "running") for j in jobs.items.values()):
+            raise ValueError("Hãy dừng tác vụ trước khi xóa dự án.")
+        store.delete(id)
+        shutil.rmtree(store.directory(id))
+        return {"ok": True}
+
+    @app.post("/api/projects/{id}/jobs")
+    def submit(id: str, request: JobRequest):
+        p = store.get(id)
+        if request.cue_id and not any(c["id"] == request.cue_id for c in p["cues"]):
+            raise ValueError("Câu không tồn tại.")
+        if request.kind != "generate" and request.cue_id:
+            raise ValueError("Xuất bản cần toàn bộ dự án.")
+        if request.kind == "mkv" and p["audio_index"] is None:
+            raise ValueError("Video không có âm gốc. Chọn xuất MP3.")
+        return jobs.submit(p, request.kind, request.cue_id, request.allow_overlap)
+
+    @app.get("/api/jobs/{id}")
+    def job(id: str):
+        return jobs.public(jobs.items[id])
+
+    @app.post("/api/jobs/{id}/cancel")
+    def cancel(id: str):
+        jobs.items[id]["cancel"].set()
+        return {"ok": True}
+
+    @app.get("/api/projects/{id}/files/{file:path}")
+    def file(id: str, file: str, download: bool = False):
+        p = store.get(id)
+        root = store.directory(id).resolve()
+        path = (root / file).resolve()
+        if not path.is_relative_to(root) or not path.is_file() or path.suffix.lower() not in (".mp3", ".mkv", ".mp4", ".mov", ".avi", ".webm", ".m4v", ".wav"):
+            raise HTTPException(404)
+        if file.startswith("renders/"):
+            job_path = path.parent / "job.json"
+            if not job_path.exists():
+                raise HTTPException(409, "Bản xuất chưa hoàn thành.")
+            record = json.loads(job_path.read_text(encoding="utf-8"))
+            if record["status"] != "complete" or record["revision"] != p["revision"]:
+                raise HTTPException(409, "Bản xuất không còn khớp với dự án. Hãy xuất lại.")
+        return FileResponse(path, filename=(p["name"] + path.suffix) if download else None)
+
+    frontend = ROOT / "frontend/dist"
+    if frontend.exists():
+        app.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
+    return app

@@ -1,0 +1,11 @@
+1
+00:00:00,500 --> 00:00:03,000
+Xin chào, đây là bản lồng tiếng trên máy của bạn.
+
+2
+00:00:05,000 --> 00:00:07,000
+Chúng ta có thể thay đổi tốc độ từng câu.
+
+3
+00:00:09,000 --> 00:00:11,000
+Và xuất video với hai luồng âm thanh.
