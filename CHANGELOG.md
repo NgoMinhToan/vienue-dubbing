@@ -17,6 +17,7 @@
 - Bổ sung kiểm tra launcher, gói ZIP Windows và CI Windows/Linux.
 
 ### Kiểm chứng
+- Giai đoạn 3: 42 test Windows qua. UI đã thêm/chỉnh sửa phiên bản và chạy MKV thật từ queue, kiểm định đúng một video + Original + Vietnamese Dub. Bổ sung smoke nhập SRT Unicode qua mount nguồn Docker read-only.
 - 29 kiểm thử qua trong môi trường Python mới trên Windows.
 - Benchmark TTS CPU 60 câu trên timeline 600 giây: 580,05 giây tổng hợp/xuất. Không phải phép đo 600 giây lời nói liên tục.
 - TypeScript và Vite production build đã qua. CI 34869583419 qua Windows/Linux và build/khởi động Docker non-root, health và giao diện HTTP.

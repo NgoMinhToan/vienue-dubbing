@@ -11,7 +11,8 @@ files = set()
 for folder in ('src', 'apps/dubbing_web', 'frontend/dist'):
     files.update(p for p in (ROOT/folder).rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc')
 for name in ('LICENSE','README-DUBBING.vi.md','Setup.ps1','Start.bat','requirements-dubbing.lock.txt',
-             'scripts/start.py','scripts/setup_tools.py','docs/IMPLEMENTATION_STATUS.vi.md'):
+             'scripts/start.py','scripts/setup_tools.py','scripts/media_cli.py','CHANGELOG.md',
+             'docs/IMPLEMENTATION_STATUS.vi.md','docs/EXECUTION_PLAN.vi.md','docs/QUEUE.vi.md','docs/DOCKER_PUBLISH.vi.md'):
     files.add(ROOT/name)
 if (ROOT/'apps/__init__.py').exists():
     files.add(ROOT/'apps/__init__.py')

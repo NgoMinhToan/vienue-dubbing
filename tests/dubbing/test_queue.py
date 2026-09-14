@@ -78,7 +78,9 @@ def test_cancel_then_retry_does_not_execute_old_dispatch(tmp_path):
     with TestClient(app) as client:
         item=add(client,p,mode='now')
         client.post('/api/jobs/'+item['id']+'/cancel')
+        app.state.jobs.items[item['id']]['skipped_cues']=[99]
         assert client.post('/api/queue/'+item['id']+'/start').status_code==200
+        assert 'skipped_cues' not in app.state.jobs.items[item['id']]
         app.state.jobs.pool.run()
         assert calls==[]
         app.state.jobs.pool.run()

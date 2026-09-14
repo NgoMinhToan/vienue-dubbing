@@ -48,7 +48,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run -d --name dubbing-smoke -p 127.0.0.1:7861:7861 dubbing:test
+          mkdir -p "$RUNNER_TEMP/media"
+          docker run --rm --user "$(id -u):$(id -g)" -v "$RUNNER_TEMP/media:/fixtures" --entrypoint ffmpeg dubbing:test -v error -f lavfi -i color=s=64x64:d=1 -c:v libx264 /fixtures/source.mp4
+          python -c 'import os,pathlib; pathlib.Path(os.environ["RUNNER_TEMP"],"media","phụ đề.srt").write_text("1\n00:00:00,000 --> 00:00:00,500\nXin chào\n",encoding="utf-8")'
+          chmod -R a+rX "$RUNNER_TEMP/media"
+          docker run -d --name dubbing-smoke -p 127.0.0.1:7861:7861 --mount "type=bind,source=$RUNNER_TEMP/media,target=/media,readonly" -e APP_MEDIA_ROOT=/media dubbing:test
           trap 'docker logs dubbing-smoke; docker rm -f dubbing-smoke' EXIT
           test "$(docker exec dubbing-smoke id -u)" != 0
           for attempt in $(seq 1 30); do
@@ -57,6 +61,7 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:7861/ > /tmp/index.html
           python -c 'import json; h=json.load(open("/tmp/health.json")); assert all(h["tools"].values()), h'
+          python -c 'import json,urllib.request; r=urllib.request.Request("http://127.0.0.1:7861/api/media/import",data=json.dumps({"video":"source.mp4","srt":"phụ đề.srt"}).encode(),headers={"Content-Type":"application/json"}); p=json.load(urllib.request.urlopen(r)); assert p["cues"][0]["text"]=="Xin chào"'
   publish:
     needs: docker-smoke
     if: github.repository == 'NgoMinhToan/vienue-dubbing' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))

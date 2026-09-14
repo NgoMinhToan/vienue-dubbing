@@ -62,6 +62,8 @@ class Queue:
             self.store.get(item['project'])
             p=json.loads(self.snapshot_path(item).read_text(encoding='utf-8'))
             item.update(status='queued',done=0,warnings=[],message='Đã đưa vào worker CPU.')
+            for field in ('skipped_cues','file','preview','reused_mix'):
+                item.pop(field,None)
             item['cancel'].clear()
             item['_dispatch']=item.get('_dispatch',0)+1
             self.jobs.persist(item)

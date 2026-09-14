@@ -57,6 +57,7 @@ outputs/
 .cache/
 .tools/
 .test-data/
+artifacts/
 data/
 frontend/node_modules/
 frontend/dist/
