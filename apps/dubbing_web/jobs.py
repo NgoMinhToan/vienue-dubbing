@@ -115,7 +115,7 @@ class Jobs:
                 cache.mkdir(exist_ok=True)
                 cached = cache / (voice_key({"text": sample_text}, project) + ".wav")
                 if not cached.exists():
-                    wav = self.load_model().infer(sample_text, voice=project["voice"])
+                    wav = self.load_model().infer(speech_text({"text": sample_text}, project), voice=project["voice"])
                     temporary = dest / "sample-temp.wav"
                     sf.write(temporary, wav, 48000)
                     temporary.replace(cached)

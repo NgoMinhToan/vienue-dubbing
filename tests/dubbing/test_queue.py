@@ -122,3 +122,14 @@ def test_version_output_remains_downloadable_after_project_changes(tmp_path):
         assert client.post('/api/projects/'+p['id']+'/cleanup?confirm=true').status_code==200
         assert client.get(path).status_code==200
         assert json.loads((root/'renders'/item['id']/'snapshot.json').read_text())['revision']==1
+
+
+def test_project_voice_sample_matches_dictionary_cache_key(tmp_path):
+    app,p,root,calls=fixture(tmp_path)
+    p['pronunciation']={'rules':[{'source':'Xin chào','target':'Chào bạn'}]}
+    app.state.store.save(p)
+    with TestClient(app) as client:
+        response=client.post('/api/projects/'+p['id']+'/jobs',json={'kind':'sample'})
+        assert response.status_code==200
+        app.state.jobs.pool.run()
+        assert calls[0].startswith('Chào bạn,')
