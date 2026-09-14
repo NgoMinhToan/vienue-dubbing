@@ -4,6 +4,27 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile as sf
+
+
+def test_unrecognized_container_uses_stream_copy_fallback(tmp_path, monkeypatch):
+    from apps.dubbing_web import media
+    source = tmp_path / 'nguồn thử.mov'
+    media.run('ffmpeg', ['-v','error','-y','-f','lavfi','-i','color=s=64x64:d=1',
+        '-f','lavfi','-i','sine=duration=1','-c:v','libx264','-c:a','aac',source])
+    project = {'media':media.inspect_video(source), 'video_file':source.name, 'audio_index':1}
+    dub = tmp_path/'dub.wav'
+    sf.write(dub, np.zeros(48000), 48000)
+    identify = media.identify
+    def reject_source(path):
+        if Path(path) == source:
+            raise RuntimeError('Simulated unsupported container')
+        return identify(path)
+    monkeypatch.setattr(media, 'identify', reject_source)
+    output = tmp_path/'result.mkv'
+    media.mux_mkv(project, tmp_path, dub, output, threading.Event())
+    tracks = identify(output)['tracks']
+    assert [t['type'] for t in tracks] == ['video','audio','audio']
+    assert tracks[0]['properties']['codec_id'] == 'V_MPEG4/ISO/AVC'
 from apps.dubbing_web.config import executable
 from apps.dubbing_web.media import run, inspect_video, mux_mkv, identify, mix, encode_mp3
 
