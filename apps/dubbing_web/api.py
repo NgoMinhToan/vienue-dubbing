@@ -17,6 +17,7 @@ from .domain import Edit, parse_srt, voice_key, timing, cue_warnings
 from .store import Store, Conflict
 from .jobs import Jobs
 from .media import inspect_video
+from .library import install_library
 
 
 class JobRequest(BaseModel):
@@ -52,6 +53,7 @@ def create_app(settings=None):
 
     app = FastAPI(title="VieNeu Dubbing", lifespan=lifespan)
     app.state.store, app.state.jobs = store, jobs
+    install_library(app, store, jobs, presets["presets"])
 
     @app.middleware("http")
     async def local_origin(request: Request, call_next):

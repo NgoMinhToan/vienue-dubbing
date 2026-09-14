@@ -84,3 +84,6 @@ Chi tiết yêu cầu, giai đoạn và quy trình MKV: [Kế hoạch](docs/DUBB
 - Kiểm tra CPU offline bằng `HF_HUB_OFFLINE=1` và `python scripts/smoke_dubbing.py` sau khi model đã tải. Phép thử Windows đạt 3,84 giây audio trong 2,81 giây tổng hợp, model load 9,63 giây; chỉ là một câu mẫu.
 - Khi tác vụ bị gián đoạn, mở lại dự án và bấm tạo giọng để tiếp tục các câu thiếu; các WAV đã tạo được dùng lại. Không tự chạy lại tác vụ sau khi mở ứng dụng.
 - Nguồn có timestamp khác 0 được quy đổi về timeline của video. Nếu dự án nhập bằng bản cũ có thời lượng sai vì offset, hãy nhập lại video để cập nhật metadata rồi xuất lại.
+# Thư viện giọng cục bộ
+
+Mở **Giọng nói** để tìm/lọc 23 preset, đánh dấu yêu thích hoặc sửa tên, mô tả, thẻ và câu nghe mẫu. ID engine giữ nguyên; tên hiển thị mới được dùng trong bộ chọn giọng khi quay về Lồng tiếng. Mẫu WAV được cache theo giọng và câu mẫu, tạo bằng worker CPU dùng chung. Dữ liệu nằm trong thư mục `APP_DATA_DIR` và đi theo volume Docker.

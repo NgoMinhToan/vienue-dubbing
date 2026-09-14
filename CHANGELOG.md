@@ -3,6 +3,7 @@
 ## Unreleased — 2026-09-14
 
 ### WebUI và media
+- Thêm màn hình thư viện giọng: metadata cục bộ có revision, tìm/lọc/yêu thích, sửa câu mẫu và nghe WAV qua worker CPU dùng chung.
 - Thêm chế độ âm nền Giữ nguyên; timeline phân biệt chưa tạo, đã tạo và câu chồng âm.
 - Tự theo dõi vị trí phát, sửa mốc thời gian trực tiếp, kéo cue trên timeline.
 - Chọn trước giữ hoặc bỏ qua câu tràn khi xuất; tái sử dụng bản phối cùng revision và chính sách.

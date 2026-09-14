@@ -982,3 +982,16 @@ main {
 .timeline-legend .pending { color: #b0b0ba; }
 .timeline-legend .ready { color: #6edba0; }
 .timeline-legend .overlap { color: #f2c45a; }
+.library-page { max-width: 960px; margin: 40px auto; padding: 0 28px; overflow-y: auto; height: calc(100vh - 80px); }
+.library-page h1 small { font-size: 13px; color: #9a9aaa; }
+.library-page > input { width: 100%; }
+.library-filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 20px 0; }
+.library-filters label { display: flex; gap: 8px; align-items: center; }
+.voice-card { display: flex; gap: 10px; align-items: center; padding: 18px; background: #14151e; border: 1px solid #292b39; border-radius: 10px; margin: 10px 0; }
+.voice-card > div { flex: 1; min-width: 0; }
+.voice-card small { display: block; color: #a4a4b8; }
+.library-dialog { width: min(540px, 90vw); max-height: 90vh; overflow-y: auto; background: #171821; border: 1px solid #39394d; border-radius: 14px; padding: 24px; }
+.library-dialog label { display: block; margin: 12px 0; }
+.library-dialog input { display: block; width: 100%; margin-top: 5px; }
+.library-dialog button { margin-right: 12px; }
+.modal-backdrop { position: fixed; inset: 0; background: #000a; display: flex; justify-content: center; align-items: center; z-index: 100; }

@@ -21,6 +21,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import "./style.css";
+import VoiceLibrary from "./VoiceLibrary";
 
 type Cue = {
   id: string;
@@ -131,7 +132,7 @@ function App() {
   const [keepOverflow, setKeepOverflow] = useState(true);
   const [list, setList] = useState<Summary[]>([]),
     [project, setProject] = useState<Project | null>(null),
-    [voices, setVoices] = useState<{ id: string; description: string }[]>([]),
+    [voices, setVoices] = useState<{ id: string; name?:string; description: string }[]>([]),
     [health, setHealth] = useState<Health | null>(null);
   const [page, setPage] = useState("projects"),
     [create, setCreate] = useState(false),
@@ -175,7 +176,7 @@ function App() {
       .catch((e) => setError(e.message));
   useEffect(() => {
     loadList();
-    api<typeof voices>("/voices")
+    api<typeof voices>("/library/voices")
       .then(setVoices)
       .catch((e) => setError(e.message));
     const ping = () =>
@@ -400,12 +401,13 @@ function App() {
         </div>
         <div className="nav-label">KHÔNG GIAN LÀM VIỆC</div>
         <button
-          className={page !== "settings" ? "nav selected" : "nav"}
+          className={["projects", "editor"].includes(page) ? "nav selected" : "nav"}
           onClick={() => {
             if (!dirty || confirm("Bỏ các thay đổi chưa lưu?")) {
               setPage("projects");
               setDirty(false);
               loadList();
+              api<typeof voices>("/library/voices").then(setVoices).catch(e=>setError(e.message));
             }
           }}
         >
@@ -419,6 +421,7 @@ function App() {
           <Settings size={17} />
           Cài đặt
         </button>
+        <button className={page === "voices" ? "nav selected" : "nav"} onClick={async()=>{try{await save();setPage("voices");}catch(e){setError(String(e));}}}><AudioLines size={17}/>Giọng nói</button>
         <div className="side-bottom">
           <div className="local-badge">
             <span /> Xử lý trên máy
@@ -433,6 +436,7 @@ function App() {
         </div>
       </aside>
       <main>
+        {page === "voices" && <VoiceLibrary/>}
         {error && (
           <div className="error" role="alert">
             {error}
@@ -754,7 +758,7 @@ function App() {
                     onChange={(e) => mutate({ voice: e.target.value })}
                   >
                     {voices.map((v) => (
-                      <option key={v.id}>{v.id}</option>
+                      <option key={v.id} value={v.id}>{v.name || v.id}</option>
                     ))}
                   </select>
                 </label>
@@ -928,7 +932,7 @@ function App() {
                             >
                               <option value="">Giọng chung</option>
                               {voices.map((v) => (
-                                <option key={v.id}>{v.id}</option>
+                                <option key={v.id} value={v.id}>{v.name || v.id}</option>
                               ))}
                             </select>
                             <input
