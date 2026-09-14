@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 2026-09-14
+## Unreleased — 2026-09-14–15
 
 ### WebUI và media
 - Hàng đợi phiên bản bền vững, chọn xử lý ngay/chờ, số thứ tự theo dự án, chỉnh sửa snapshot, hủy/thử lại/restart và xóa dự án sau khi worker dừng an toàn.
@@ -17,6 +17,7 @@
 - Bổ sung kiểm tra launcher, gói ZIP Windows và CI Windows/Linux.
 
 ### Kiểm chứng
+- Nghiệm thu cuối CI 34874567845: 43 test qua trên mỗi OS Windows/Linux; frontend build, Docker import qua mount read-only, smoke và GHCR publish đều thành công. Ba giai đoạn hoàn thành theo EXECUTION_PLAN.vi.md.
 - Giai đoạn 3: 42 test Windows qua. UI đã thêm/chỉnh sửa phiên bản và chạy MKV thật từ queue, kiểm định đúng một video + Original + Vietnamese Dub. Bổ sung smoke nhập SRT Unicode qua mount nguồn Docker read-only.
 - 29 kiểm thử qua trong môi trường Python mới trên Windows.
 - Benchmark TTS CPU 60 câu trên timeline 600 giây: 580,05 giây tổng hợp/xuất. Không phải phép đo 600 giây lời nói liên tục.

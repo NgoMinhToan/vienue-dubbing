@@ -34,7 +34,7 @@ Giai đoạn 1 hoàn thành trong phạm vi checklist này. Giới hạn kiểm 
 - [x] APP_MEDIA_ROOT cấu hình thư mục gốc; mặc định thư mục hiện hành. Docker mount host tùy ý vào root này.
 - [x] API duyệt thư mục, lọc video/SRT; chặn traversal và symlink ra ngoài root.
 - [x] UI chọn nguồn từ thư mục server cùng tùy chọn upload hiện có; CLI hỗ trợ tạo dự án từ đường dẫn.
-- [ ] Kiểm thử Windows/Linux, Unicode, quyền chỉ đọc và file không tồn tại.
+- [x] Kiểm thử Windows/Linux, Unicode, quyền chỉ đọc và file không tồn tại. CI 34874567845 đã nhập nguồn từ bind mount read-only trong container non-root.
 - [x] Commit 7418f41 + tài liệu ví dụ volume mount và CLI.
 
 ### 3.3 Hàng đợi phiên bản
@@ -43,6 +43,14 @@ Giai đoạn 1 hoàn thành trong phạm vi checklist này. Giới hạn kiểm 
 - [x] Chỉnh sửa item: gỡ khỏi hàng đợi rồi trả snapshot về dự án gốc, kiểm tra revision tránh mất chỉnh sửa.
 - [x] Xóa dự án: xác nhận hủy item chờ; xử lý job đang chạy an toàn trước khi xóa dữ liệu.
 - [x] Kiểm thử race/cancel/restart/edit/delete và output theo từng snapshot (5 test queue riêng).
-- [ ] Commit + README/CHANGELOG và xác nhận hoàn thành giai đoạn.
+- [x] Commit 209cb7f cùng các bản sửa sau đó, README/CHANGELOG và xác nhận hoàn thành giai đoạn 3 ngày 15/09/2026.
+
+## Nghiệm thu cuối
+
+- [x] CI [34874567845](https://github.com/NgoMinhToan/vienue-dubbing/actions/runs/34874567845): 43 test qua trên mỗi OS Windows/Linux, frontend build, Docker smoke và publish đều thành công.
+- [x] UI: chọn nguồn server, thư viện giọng thật 4,48 giây, từ điển VieNeu → Vi Nói, thêm/chỉnh sửa queue về dự án gốc và MKV thật đúng hai track.
+- [x] Image code b230ed3 được publish dưới edge/SHA; digest ghi trong DOCKER_PUBLISH.vi.md. Gói Windows có frontend và tài liệu/CLI đầy đủ.
+
+Ba giai đoạn đã hoàn thành theo phạm vi checklist. Các giới hạn và phạm vi để sau (domain/auth, thêm kiến trúc CPU, kiểm chứng mọi codec) được ghi riêng trong IMPLEMENTATION_STATUS.vi.md.
 
 Thứ tự bắt buộc: Giai đoạn 1 → 2 → 3. Không push source lên repository upstream. Các thao tác publish thật chỉ thực hiện với repository/registry người dùng sở hữu hoặc chỉ định.

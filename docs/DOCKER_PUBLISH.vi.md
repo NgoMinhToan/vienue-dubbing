@@ -1,5 +1,11 @@
 # Docker CI/CD
 
+Nghiệm thu 15/09/2026: [CI 34874567845](https://github.com/NgoMinhToan/vienue-dubbing/actions/runs/34874567845) đã publish code `b230ed3` và kiểm tra digest:
+
+```text
+ghcr.io/ngominhtoan/vienue-dubbing@sha256:6e6ffb621f4b902dd1ed3e776ebfc775862a319518a12329269b9f9129b3c61b
+```
+
 Workflow `.github/workflows/dubbing.yml` kiểm thử Windows/Linux, build container và kiểm tra HTTP/non-root trước khi publish.
 
 | Trigger | Kết quả |
@@ -12,6 +18,8 @@ Workflow `.github/workflows/dubbing.yml` kiểm thử Windows/Linux, build conta
 | workflow_dispatch trên main | Kiểm thử và publish edge/SHA |
 
 Registry: `ghcr.io/ngominhtoan/vienue-dubbing`, nền tảng `linux/amd64`. Workflow dùng `GITHUB_TOKEN` với `packages:write`, không cần lưu PAT trong source. Repo riêng tư; package mới mặc định riêng tư, tài khoản pull phải được cấp quyền đọc package. Khi fork, sửa tên image và điều kiện repository ở job publish theo repo của bạn.
+
+Để pull package riêng tư trên máy khác, chạy `docker login ghcr.io -u NgoMinhToan` và nhập PAT **classic** có quyền `read:packages` ở lời nhắc mật khẩu. Tài khoản phải có quyền đọc package. Đăng nhập `gh` không tự đăng nhập Docker. [Hướng dẫn xác thực GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic).
 
 ```sh
 docker pull ghcr.io/ngominhtoan/vienue-dubbing:edge

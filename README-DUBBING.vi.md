@@ -2,6 +2,8 @@
 
 WebUI cục bộ dành cho lồng tiếng video bằng SRT tiếng Việt, sử dụng VieNeu v3 Turbo fp32 trên CPU. Không cần khóa API hay tài khoản. Lần đầu tạo giọng cần mạng để tải model; model được lưu trong thư mục dữ liệu.
 
+Ba giai đoạn triển khai đã nghiệm thu ngày 15/09/2026. Xem [checklist và bằng chứng kiểm thử](docs/EXECUTION_PLAN.vi.md), [Docker/GHCR và mount nguồn](docs/DOCKER_PUBLISH.vi.md), [hàng đợi phiên bản](docs/QUEUE.vi.md).
+
 ## Chạy trên Windows
 
 Gói ZIP tạo bằng `python scripts/package_dubbing.py` nằm trong `artifacts/vieneu-dubbing-windows.zip`. Gói có frontend build sẵn: chỉ cần Python 3.12, không cần Node.js. Giải nén vào thư mục có quyền ghi, chạy Setup.ps1 lần đầu rồi Start.bat. Đây là gói cài từ source, không phải EXE độc lập; model tải ở lần tạo giọng đầu tiên.
