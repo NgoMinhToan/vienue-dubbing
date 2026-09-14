@@ -25,24 +25,24 @@ Giai đoạn 1 hoàn thành trong phạm vi checklist này. Giới hạn kiểm 
 ## Giai đoạn 3 — CI/CD, thư mục nguồn, hàng đợi
 
 ### 3.1 Docker CI/CD
-- [ ] GitHub Actions build/test trên PR, build/push GHCR trên nhánh phát hành và tag/release; dùng GITHUB_TOKEN quyền packages:write.
-- [ ] Tag image theo phiên bản, SHA; latest chỉ từ bản phát hành phù hợp; tránh publish từ PR/fork không được phép.
-- [ ] Kiểm tra workflow và build image; ghi rõ registry/repository được chọn và việc publish thực tế.
-- [ ] Commit + hướng dẫn fork/permissions/pull image.
+- [x] GitHub Actions build/test trên PR, build/push GHCR trên main và tag/release; dùng GITHUB_TOKEN quyền packages:write.
+- [x] Tag image theo phiên bản, SHA; latest chỉ từ release ổn định; tránh publish từ PR/fork không được phép.
+- [x] CI 34871803582 đã build, publish và kiểm tra digest thật tại ghcr.io/ngominhtoan/vienue-dubbing (edge/SHA).
+- [x] Commit 7945055 + hướng dẫn fork/permissions/pull image. Chưa tạo tag/release ổn định nên latest chưa có.
 
 ### 3.2 Chọn video/SRT trong thư mục
 - [x] APP_MEDIA_ROOT cấu hình thư mục gốc; mặc định thư mục hiện hành. Docker mount host tùy ý vào root này.
 - [x] API duyệt thư mục, lọc video/SRT; chặn traversal và symlink ra ngoài root.
 - [x] UI chọn nguồn từ thư mục server cùng tùy chọn upload hiện có; CLI hỗ trợ tạo dự án từ đường dẫn.
 - [ ] Kiểm thử Windows/Linux, Unicode, quyền chỉ đọc và file không tồn tại.
-- [ ] Commit + tài liệu ví dụ volume mount.
+- [x] Commit 7418f41 + tài liệu ví dụ volume mount và CLI.
 
 ### 3.3 Hàng đợi phiên bản
-- [ ] Snapshot bất biến của dự án cho mỗi item; chọn xử lý ngay/thêm hàng đợi; lưu bền vững.
-- [ ] Scheduler tuần tự, UI số phiên bản chờ/đang chạy/hoàn tất và thao tác bắt đầu.
-- [ ] Chỉnh sửa item: gỡ khỏi hàng đợi rồi trả snapshot về dự án gốc, kiểm tra revision tránh mất chỉnh sửa.
-- [ ] Xóa dự án: xác nhận hủy item chờ; xử lý job đang chạy an toàn trước khi xóa dữ liệu.
-- [ ] Kiểm thử race/cancel/restart/edit/delete và output theo từng snapshot.
+- [x] Snapshot bất biến của dự án cho mỗi item; chọn xử lý ngay/thêm hàng đợi; lưu bền vững.
+- [x] Scheduler tuần tự, UI số phiên bản chờ/đang chạy/hoàn tất và thao tác bắt đầu.
+- [x] Chỉnh sửa item: gỡ khỏi hàng đợi rồi trả snapshot về dự án gốc, kiểm tra revision tránh mất chỉnh sửa.
+- [x] Xóa dự án: xác nhận hủy item chờ; xử lý job đang chạy an toàn trước khi xóa dữ liệu.
+- [x] Kiểm thử race/cancel/restart/edit/delete và output theo từng snapshot (5 test queue riêng).
 - [ ] Commit + README/CHANGELOG và xác nhận hoàn thành giai đoạn.
 
 Thứ tự bắt buộc: Giai đoạn 1 → 2 → 3. Không push source lên repository upstream. Các thao tác publish thật chỉ thực hiện với repository/registry người dùng sở hữu hoặc chỉ định.

@@ -3,6 +3,7 @@
 ## Unreleased — 2026-09-14
 
 ### WebUI và media
+- Hàng đợi phiên bản bền vững, chọn xử lý ngay/chờ, số thứ tự theo dự án, chỉnh sửa snapshot, hủy/thử lại/restart và xóa dự án sau khi worker dừng an toàn.
 - Thêm chọn video/SRT từ APP_MEDIA_ROOT qua UI và scripts/media_cli.py; hỗ trợ mount nguồn chỉ đọc, chặn traversal/symlink ra ngoài.
 - CI/CD GHCR: test + Docker smoke trước khi push, tag edge/SHA/semver và latest chỉ cho release ổn định.
 - Thêm từ điển phát âm: luật một lượt, nhập/xuất JSON, thử lời engine, snapshot theo dự án và cache dựa trên lời thực đọc.

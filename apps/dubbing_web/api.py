@@ -20,6 +20,7 @@ from .media import inspect_video
 from .library import install_library
 from .pronunciation import install_dictionary
 from .media_browser import install_media_browser
+from .queueing import install_queue
 
 
 class JobRequest(BaseModel):
@@ -57,6 +58,7 @@ def create_app(settings=None):
     app.state.store, app.state.jobs = store, jobs
     install_library(app, store, jobs, presets["presets"])
     get_dictionary = install_dictionary(app, store, jobs)
+    queue = install_queue(app, store, jobs)
 
     @app.middleware("http")
     async def local_origin(request: Request, call_next):
@@ -118,7 +120,8 @@ def create_app(settings=None):
 
     @app.get("/api/projects")
     def projects():
-        return [{"id": p["id"], "name": p["name"], "count": len(p["cues"]), "updated": p["updated"], "video_name": p["video_name"]} for p in store.list()]
+        with jobs.lock:
+            return [{"id": p["id"], "name": p["name"], "count": len(p["cues"]), "updated": p["updated"], "video_name": p["video_name"], "queue":queue.summary(p['id'])} for p in store.list()]
 
     @app.post("/api/projects")
     def create(name: str = Form("Lồng tiếng mới"), video: UploadFile = File(...), srt: UploadFile = File(...)):
@@ -210,13 +213,19 @@ def create_app(settings=None):
                 raise
 
     @app.delete("/api/projects/{id}")
-    def delete(id: str):
-        store.get(id)
-        if any(j["project"] == id and j["status"] in ("queued", "running") for j in jobs.items.values()):
-            raise ValueError("Hãy dừng tác vụ trước khi xóa dự án.")
-        store.delete(id)
-        shutil.rmtree(store.directory(id))
-        return {"ok": True}
+    def delete(id: str, confirm_queue: bool=False):
+        with jobs.lock:
+            store.get(id)
+            pending=any(j['project']==id and (j['status'] in ('waiting','queued','running') or j.get('_executing')) for j in jobs.items.values())
+            if pending and not confirm_queue:
+                raise Conflict('Dự án còn tác vụ/hàng đợi. Xác nhận hủy tất cả trước khi xóa.')
+            if pending and queue.cancel_project(id):
+                return JSONResponse({'pending':True,'message':'Đang dừng worker trước khi xóa.'},202)
+            store.delete(id)
+            shutil.rmtree(store.directory(id))
+            for jid in [jid for jid,j in jobs.items.items() if j['project']==id]:
+                jobs.items.pop(jid)
+            return {"ok": True}
 
     @app.post("/api/projects/{id}/cleanup")
     def cleanup(id: str, confirm: bool = False):
@@ -224,7 +233,7 @@ def create_app(settings=None):
             raise ValueError("Cần xác nhận dọn bản xuất/cache cũ.")
         with jobs.lock:
             p = store.get(id)
-            if any(j["project"] == id and j["status"] in ("queued", "running") for j in jobs.items.values()):
+            if any(j["project"] == id and (j["status"] in ("queued", "running") or j.get('_executing')) for j in jobs.items.values()):
                 raise ValueError("Đợi hoặc dừng tác vụ trước khi dọn dữ liệu.")
             root = store.directory(id).resolve()
             removed = 0
@@ -234,7 +243,7 @@ def create_app(settings=None):
                     continue
                 current = record["revision"] == p["revision"] and record["status"] == "complete"
                 proxy = record["kind"] == "proxy" and record["status"] == "complete" and record.get("video_file") == p["video_file"] and record.get("audio_index") == p["audio_index"]
-                if current or proxy:
+                if current or proxy or record.get('version'):
                     continue
                 folder = (root / "renders" / jid).resolve()
                 if folder.parent != root / "renders":
@@ -244,6 +253,10 @@ def create_app(settings=None):
                     shutil.rmtree(folder)
                 jobs.items.pop(jid, None)
             keys = {voice_key(c, p) + ".wav" for c in p["cues"]}
+            for record in jobs.items.values():
+                if record['project']==id and record.get('version'):
+                    snapshot=json.loads(queue.snapshot_path(record).read_text(encoding='utf-8'))
+                    keys.update(voice_key(c,snapshot)+'.wav' for c in snapshot['cues'])
             for clip in (root / "clips").glob("*.wav"):
                 if clip.name not in keys:
                     removed += clip.stat().st_size
@@ -267,7 +280,12 @@ def create_app(settings=None):
 
     @app.post("/api/jobs/{id}/cancel")
     def cancel(id: str):
-        jobs.items[id]["cancel"].set()
+        with jobs.lock:
+            item=jobs.items[id]
+            item["cancel"].set()
+            if item['status'] in ('waiting','queued'):
+                item.update(status='cancelled',message='Đã hủy tác vụ đang chờ.')
+                jobs.persist(item)
         return {"ok": True}
 
     @app.get("/api/projects/{id}/files/{file:path}")
@@ -283,7 +301,7 @@ def create_app(settings=None):
                 raise HTTPException(409, "Bản xuất chưa hoàn thành.")
             record = json.loads(job_path.read_text(encoding="utf-8"))
             matches = (record.get("video_file") == p["video_file"] and record.get("audio_index") == p["audio_index"]) if record.get("kind") == "proxy" else record["revision"] == p["revision"]
-            if record["status"] != "complete" or not matches:
+            if record["status"] != "complete" or (not record.get('version') and not matches):
                 raise HTTPException(409, "Bản xuất không còn khớp với dự án. Hãy xuất lại.")
         return FileResponse(path, filename=(p["name"] + path.suffix) if download else None)
 

@@ -24,6 +24,7 @@ import "./style.css";
 import VoiceLibrary from "./VoiceLibrary";
 import Pronunciation from "./Pronunciation";
 import MediaBrowser from "./MediaBrowser";
+import QueuePanel from "./QueuePanel";
 
 type Cue = {
   id: string;
@@ -75,6 +76,7 @@ type Job = {
   warnings: { cue: number; seconds: number }[];
 };
 type Summary = {
+  queue?: {total:number;waiting:number;completed:number;current:number[];last_completed:number|null};
   id: string;
   name: string;
   count: number;
@@ -131,6 +133,7 @@ function TimeField({value,label,onCommit}:{value:number;label:string;onCommit:(v
 }
 
 function App() {
+  const [taskMode,setTaskMode]=useState('now');
   const [sourceMode,setSourceMode]=useState('upload');
   const [localSources,setLocalSources]=useState({video:'',srt:''});
   const [keepOverflow, setKeepOverflow] = useState(true);
@@ -178,6 +181,7 @@ function App() {
     api<Summary[]>("/projects")
       .then(setList)
       .catch((e) => setError(e.message));
+  useEffect(()=>{if(page!=='projects')return;const timer=setInterval(loadList,2500);return()=>clearInterval(timer);},[page]);
   useEffect(() => {
     loadList();
     api<typeof voices>("/library/voices")
@@ -296,7 +300,7 @@ function App() {
     try { await work; } finally { saving.current = null; }
     return dirtyRef.current ? save() : latest.current;
   }
-  async function run(kind: string, cueId?: string, allow = false) {
+  async function run(kind: string, cueId?: string, allow = false, forceNow = false) {
     try {
       setError("");
       setBusy(true);
@@ -305,8 +309,8 @@ function App() {
       setPreview(false);
       setJob(
         await api<Job>(
-          `/projects/${p.id}/jobs`,
-          json("POST", { kind, cue_id: cueId, allow_overlap: allow, overflow_policy: allow || keepOverflow ? "keep" : "skip" }),
+          `/projects/${p.id}/${!cueId && ['generate','mp3','mkv'].includes(kind) ? 'versions' : 'jobs'}`,
+          json("POST", { kind, revision:p.revision, mode:forceNow?'now':taskMode, cue_id: cueId, allow_overlap: allow, overflow_policy: allow || keepOverflow ? "keep" : "skip" }),
         ),
       );
       setMenu(false);
@@ -498,6 +502,7 @@ function App() {
                       </div>
                       <h3>{p.name}</h3>
                       <p>{p.video_name}</p>
+                      {p.queue && <p>{p.queue.waiting} đang chờ · {p.queue.completed}/{p.queue.total} hoàn tất<br/>Phiên bản: {p.queue.current.length?'đang xử lý '+p.queue.current.join(', '):p.queue.last_completed?'đã xong '+p.queue.last_completed:'chưa chạy'}</p>}
                       <div className="card-footer">
                         <span>
                           Mở dự án{" "}
@@ -515,11 +520,10 @@ function App() {
                       className="delete-project"
                       aria-label={"Xóa " + p.name}
                       onClick={async () => {
-                        if (confirm("Xóa dự án và toàn bộ âm thanh đã tạo?")) {
+                        if (confirm("Xóa dự án, toàn bộ âm thanh và tất cả phiên bản hàng đợi liên quan? Tác vụ đang chạy sẽ được dừng trước khi xóa.")) {
                           try {
-                            await api("/projects/" + p.id, {
-                              method: "DELETE",
-                            });
+                            let result=await api<{pending?:boolean}>("/projects/" + p.id+'?confirm_queue=true', {method: "DELETE"});
+                            while(result.pending){await new Promise(resolve=>setTimeout(resolve,1000));result=await api("/projects/"+p.id+'?confirm_queue=true',{method:'DELETE'});}
                             loadList();
                           } catch (e) {
                             setError((e as Error).message);
@@ -535,6 +539,7 @@ function App() {
             )}
           </div>
         )}
+        {page === "projects" && <div className="queue-home"><QueuePanel onEdit={id=>void open(id)} onRefresh={loadList}/></div>}
         {page === "settings" && (
           <div className="settings-page">
             <h1>Cài đặt</h1>
@@ -619,12 +624,13 @@ function App() {
                 </button>
                 <button
                   className="generate"
-                  disabled={busy || active(job) || readyCount === totalCount}
+                  disabled={busy || readyCount === totalCount}
                   onClick={() => run("generate")}
                 >
                   <AudioLines size={16} />
                   Tạo giọng tất cả ({readyCount}/{totalCount} đã tạo)
                 </button>
+                <select aria-label="Cách xử lý tác vụ" value={taskMode} onChange={e=>setTaskMode(e.target.value)}><option value="now">Xử lý ngay</option><option value="wait">Thêm vào hàng đợi</option></select>
                 <div className="export-wrap">
                   <button className="primary" onClick={() => setMenu(!menu)}>
                     <Download size={16} />
@@ -653,7 +659,7 @@ function App() {
                         </select>
                       </label>
                       <button
-                        disabled={busy || active(job)}
+                        disabled={busy}
                         onClick={() => run("mp3")}
                       >
                         <AudioLines size={18} />
@@ -663,7 +669,7 @@ function App() {
                       </button>
                       <button
                         disabled={
-                          busy || active(job) || project.audio_index === null
+                          busy || project.audio_index === null
                         }
                         onClick={() => run("mkv")}
                       >
@@ -715,7 +721,7 @@ function App() {
                     disabled={busy || active(job)}
                     onClick={() => {
                       if (preview) { setPreview(false); audio.current?.pause(); return; }
-                      if (!validOutput) { void run("mp3"); return; }
+                      if (!validOutput) { void run("mp3",undefined,false,true); return; }
                     setPreview(true);
                     if (video.current && audio.current) {
                       audio.current.currentTime = video.current.currentTime;

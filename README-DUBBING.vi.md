@@ -88,6 +88,8 @@ Chi tiết yêu cầu, giai đoạn và quy trình MKV: [Kế hoạch](docs/DUBB
 
 Image và quy trình publish: [Docker CI/CD](docs/DOCKER_PUBLISH.vi.md).
 
+Xử lý nhiều phiên bản: [Hàng đợi và chỉnh sửa snapshot](docs/QUEUE.vi.md).
+
 Mở **Giọng nói** để tìm/lọc 23 preset, đánh dấu yêu thích hoặc sửa tên, mô tả, thẻ và câu nghe mẫu. ID engine giữ nguyên; tên hiển thị mới được dùng trong bộ chọn giọng khi quay về Lồng tiếng. Mẫu WAV được cache theo giọng và câu mẫu, tạo bằng worker CPU dùng chung. Dữ liệu nằm trong thư mục `APP_DATA_DIR` và đi theo volume Docker.
 
 ## Từ điển phát âm

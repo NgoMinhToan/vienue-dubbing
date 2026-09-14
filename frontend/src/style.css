@@ -1003,3 +1003,6 @@ main {
 .media-entries { max-height:180px; overflow:auto; border:1px solid #30313e; margin:8px 0; }
 .media-entries button { display:block; width:100%; text-align:left; border-radius:0; }
 .media-browser small,.media-browser p { overflow-wrap:anywhere; }
+.queue-panel { margin-top:32px; border-top:1px solid #343440; padding-top:16px; }
+.queue-panel .voice-card { flex-wrap:wrap; }
+.queue-home { padding:0 42px 40px; }

@@ -23,7 +23,7 @@ class Jobs:
             try:
                 saved = json.loads(path.read_text(encoding="utf-8"))
                 if saved["status"] in ("queued", "running"):
-                    saved.update(status="cancelled", message="Tác vụ bị gián đoạn. Tạo lại để tiếp tục các câu còn thiếu.")
+                    saved.update(status="waiting" if saved.get("version") else "cancelled", message="Tác vụ bị gián đoạn. Bắt đầu lại để tiếp tục các câu còn thiếu.")
                     self.write_record(path, saved)
                 saved["cancel"] = threading.Event()
                 self.items[saved["id"]] = saved
@@ -60,6 +60,8 @@ class Jobs:
 
     def submit(self, project, kind, cue_id=None, allow_overlap=False, overflow_policy=None):
         with self.lock:
+            if self.store.get(project['id'])['revision'] != project['revision']:
+                raise ValueError('Dự án đã đổi. Nạp lại trước khi tạo tác vụ.')
             if any(j["project"] == project["id"] and j["status"] in ("queued", "running") for j in self.items.values()):
                 raise ValueError("Dự án đang có tác vụ. Hãy dừng hoặc chờ hoàn tất.")
             if kind == "generate" and cue_id:
@@ -79,11 +81,15 @@ class Jobs:
 
     @staticmethod
     def public(item):
-        return {k: v for k, v in item.items() if k != "cancel"}
+        return {k: v for k, v in item.items() if k != "cancel" and not k.startswith('_')}
 
-    def execute(self, job, project, cue_id, allow_overlap, overflow_policy=None):
+    def execute(self, job, project, cue_id, allow_overlap, overflow_policy=None, dispatch=None):
         import soundfile as sf
-        job["status"] = "running"
+        with self.lock:
+            if job['status'] == 'cancelled' or (dispatch is not None and dispatch != job.get('_dispatch')):
+                return
+            job["status"] = "running"
+            job['_executing'] = True
         root = self.store.directory(project["id"])
         dest = root / "renders" / job["id"]
         self.persist(job)
@@ -132,7 +138,7 @@ class Jobs:
                     if job["kind"] == "mkv":
                         media.mux_mkv(project, root, mp3, dest / "output.mkv", job["cancel"])
                     self.check_cancel(job)
-                    if self.store.get(project["id"])["revision"] != project["revision"]:
+                    if not job.get('version') and self.store.get(project["id"])["revision"] != project["revision"]:
                         raise ValueError("Dự án đã thay đổi khi xuất. Hãy xuất lại.")
                     job.update(status="complete", preview=f"renders/{job['id']}/dubbed.mp3",
                                file=f"renders/{job['id']}/" + ("output.mkv" if job["kind"] == "mkv" else "dubbed.mp3"),
@@ -190,7 +196,7 @@ class Jobs:
                     job["message"] = "Đang ghép MKV hai track…"
                     media.mux_mkv(project, root, mp3, dest / "output.mkv", job["cancel"])
                 current = self.store.get(project["id"])
-                if current["revision"] != project["revision"]:
+                if not job.get('version') and current["revision"] != project["revision"]:
                     raise ValueError("Dự án đã thay đổi khi xuất. Hãy xuất lại phiên bản mới nhất.")
                 job["file"] = f"renders/{job['id']}/" + ("output.mkv" if job["kind"] == "mkv" else "dubbed.mp3")
                 job["preview"] = f"renders/{job['id']}/dubbed.mp3"
@@ -203,16 +209,19 @@ class Jobs:
         except Exception as exc:
             job.update(status="error", message=str(exc))
         finally:
-            self.persist(job)
-            keep = {"job.json"}
-            if job["status"] == "complete":
-                keep.update(Path(job[key]).name for key in ("file", "preview") if job.get(key))
-            for path in dest.iterdir():
-                if path.is_file() and path.name not in keep:
-                    try:
-                        path.unlink()
-                    except OSError:
-                        pass  # A player may still hold a file on Windows; retry on later cleanup.
+            try:
+                self.persist(job)
+                keep = {"job.json", "snapshot.json"}
+                if job["status"] == "complete":
+                    keep.update(Path(job[key]).name for key in ("file", "preview") if job.get(key))
+                for path in dest.iterdir():
+                    if path.is_file() and path.name not in keep:
+                        try:
+                            path.unlink()
+                        except OSError:
+                            pass  # A player may still hold a file on Windows; retry on later cleanup.
+            finally:
+                job['_executing'] = False
 
     def shutdown(self):
         for job in self.items.values():
