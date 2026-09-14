@@ -518,15 +518,19 @@ function App() {
                     </button>
                     <button
                       className="delete-project"
+                      disabled={busy}
                       aria-label={"Xóa " + p.name}
                       onClick={async () => {
                         if (confirm("Xóa dự án, toàn bộ âm thanh và tất cả phiên bản hàng đợi liên quan? Tác vụ đang chạy sẽ được dừng trước khi xóa.")) {
+                          setBusy(true);
                           try {
                             let result=await api<{pending?:boolean}>("/projects/" + p.id+'?confirm_queue=true', {method: "DELETE"});
                             while(result.pending){await new Promise(resolve=>setTimeout(resolve,1000));result=await api("/projects/"+p.id+'?confirm_queue=true',{method:'DELETE'});}
                             loadList();
                           } catch (e) {
                             setError((e as Error).message);
+                          } finally {
+                            setBusy(false);
                           }
                         }
                       }}
