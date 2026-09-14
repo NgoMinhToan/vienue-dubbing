@@ -18,6 +18,7 @@ from .store import Store, Conflict
 from .jobs import Jobs
 from .media import inspect_video
 from .library import install_library
+from .pronunciation import install_dictionary
 
 
 class JobRequest(BaseModel):
@@ -54,6 +55,7 @@ def create_app(settings=None):
     app = FastAPI(title="VieNeu Dubbing", lifespan=lifespan)
     app.state.store, app.state.jobs = store, jobs
     install_library(app, store, jobs, presets["presets"])
+    get_dictionary = install_dictionary(app, store, jobs)
 
     @app.middleware("http")
     async def local_origin(request: Request, call_next):
@@ -138,7 +140,8 @@ def create_app(settings=None):
             project = {"id": id, "revision": 1, "name": name, "voice": "Kim Thanh" if "Kim Thanh" in voices else voices[0],
                        "speed": 1, "auto_fit": True, "fit_limit": 1.6, "background": "duck",
                        "audio_index": selected["index"] if selected else None,
-                       "video_name": Path(video.filename).name, "video_file": path.name, "media": info, "cues": cues}
+                       "video_name": Path(video.filename).name, "video_file": path.name, "media": info, "cues": cues,
+                       "pronunciation": get_dictionary()}
             return describe(store.save(project))
         except Exception:
             shutil.rmtree(root)

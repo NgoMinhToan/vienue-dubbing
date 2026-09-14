@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import "./style.css";
 import VoiceLibrary from "./VoiceLibrary";
+import Pronunciation from "./Pronunciation";
 
 type Cue = {
   id: string;
@@ -422,6 +423,7 @@ function App() {
           Cài đặt
         </button>
         <button className={page === "voices" ? "nav selected" : "nav"} onClick={async()=>{try{await save();setPage("voices");}catch(e){setError(String(e));}}}><AudioLines size={17}/>Giọng nói</button>
+        <button className={page === "dictionary" ? "nav selected" : "nav"} onClick={async()=>{try{await save();setPage("dictionary");}catch(e){setError(String(e));}}}>Từ điển phát âm</button>
         <div className="side-bottom">
           <div className="local-badge">
             <span /> Xử lý trên máy
@@ -437,6 +439,7 @@ function App() {
       </aside>
       <main>
         {page === "voices" && <VoiceLibrary/>}
+        <div hidden={page !== "dictionary"}><Pronunciation active={page === "dictionary"}/></div>
         {error && (
           <div className="error" role="alert">
             {error}

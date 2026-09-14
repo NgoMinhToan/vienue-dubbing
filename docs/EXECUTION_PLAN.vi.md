@@ -18,8 +18,8 @@ Giai đoạn 1 hoàn thành trong phạm vi checklist này. Giới hạn kiểm 
 
 - [x] Người dùng xác nhận triển khai cả thư viện giọng và từ điển phát âm.
 - [x] Quản lý metadata giọng, tìm/lọc/yêu thích, nghe mẫu; không đổi ID gốc. Kiểm thử API lưu/restart/revision/cache và UI tìm/lọc/form.
-- [ ] Nếu có: luật phát âm cục bộ, nhập/xuất, xem text thực đưa vào engine, cache có phiên bản; giữ văn bản hiển thị.
-- [ ] Kiểm thử, cập nhật tài liệu và commit riêng từng tính năng.
+- [x] Luật phát âm cục bộ, nhập/xuất, xem text thực đưa vào engine, snapshot có revision; giữ văn bản hiển thị.
+- [x] Kiểm thử (35 test Windows), cập nhật tài liệu và commit riêng từng tính năng; TypeScript/Vite build qua.
 - [ ] Xác nhận hoàn thành giai đoạn trước khi sang giai đoạn 3.
 
 ## Giai đoạn 3 — CI/CD, thư mục nguồn, hàng đợi

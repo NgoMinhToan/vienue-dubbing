@@ -87,3 +87,9 @@ Chi tiết yêu cầu, giai đoạn và quy trình MKV: [Kế hoạch](docs/DUBB
 # Thư viện giọng cục bộ
 
 Mở **Giọng nói** để tìm/lọc 23 preset, đánh dấu yêu thích hoặc sửa tên, mô tả, thẻ và câu nghe mẫu. ID engine giữ nguyên; tên hiển thị mới được dùng trong bộ chọn giọng khi quay về Lồng tiếng. Mẫu WAV được cache theo giọng và câu mẫu, tạo bằng worker CPU dùng chung. Dữ liệu nằm trong thư mục `APP_DATA_DIR` và đi theo volume Docker.
+
+## Từ điển phát âm
+
+Mở **Từ điển phát âm**, thêm luật Viết là → Đọc thành, tùy chọn cả từ/hoa thường/bật tắt. Bấm **Xem lời engine đọc** để thử rồi **Lưu từ điển**. Nhập/xuất JSON có version 1; nhập chỉ tạo bản nháp, cần lưu để xác nhận. Luật ở trên ưu tiên khi trùng, không thay thế đệ quy. Lời hiển thị và SRT không bị sửa.
+
+Dự án mới chụp bản từ điển hiện tại. Với dự án cũ, chọn dự án và bấm **Áp dụng bản đã lưu** khi không có tác vụ đang chạy. Việc này tăng revision, yêu cầu xuất lại; WAV của câu không thay đổi cách đọc vẫn được dùng lại. Sửa từ điển chung không tự thay bản luật của dự án cũ.

@@ -7,7 +7,7 @@ import threading
 from uuid import uuid4
 
 from .config import ROOT
-from .domain import timing, voice_key
+from .domain import timing, voice_key, speech_text
 from . import media
 
 
@@ -150,7 +150,7 @@ class Jobs:
                 path = root / "clips" / (voice_key(cue, project) + ".wav")
                 if not path.exists() or (cue_id and job["kind"] == "generate"):
                     job["message"] = "Tạo giọng: " + cue["text"][:90]
-                    wav = self.load_model().infer(cue["text"], voice=cue.get("voice") or project["voice"])
+                    wav = self.load_model().infer(speech_text(cue, project), voice=cue.get("voice") or project["voice"])
                     if not len(wav):
                         raise ValueError("Model trả về âm thanh rỗng.")
                     temporary = dest / "generated.wav"

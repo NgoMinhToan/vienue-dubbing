@@ -4,6 +4,7 @@ import re
 from uuid import uuid4
 from typing import Literal
 from pydantic import BaseModel, Field, model_validator
+from .pronunciation import spoken_text
 
 
 class Cue(BaseModel):
@@ -68,8 +69,12 @@ def parse_srt(raw: bytes) -> list[dict]:
 
 
 def voice_key(cue, project):
-    payload = ["v3turbo-fp32-v1", cue["text"], cue.get("voice") or project["voice"]]
+    payload = ["v3turbo-fp32-v1", speech_text(cue, project), cue.get("voice") or project["voice"]]
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
+
+
+def speech_text(cue, project):
+    return spoken_text(cue["text"], project.get("pronunciation", {}).get("rules", []))
 
 
 def cue_warnings(cues, duration):

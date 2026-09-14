@@ -995,3 +995,8 @@ main {
 .library-dialog input { display: block; width: 100%; margin-top: 5px; }
 .library-dialog button { margin-right: 12px; }
 .modal-backdrop { position: fixed; inset: 0; background: #000a; display: flex; justify-content: center; align-items: center; z-index: 100; }
+.rule-card { display:flex; gap:12px; align-items:center; flex-wrap:wrap; background:#171821; border:1px solid #30313e; border-radius:10px; padding:14px; margin:12px 0; }
+.rule-card label { display:flex; gap:6px; align-items:center; }
+.rule-card input:not([type=checkbox]) { width:180px; }
+.library-page textarea { width:100%; min-height:90px; margin-bottom:12px; }
+.spoken-preview { white-space:pre-wrap; color:#bba2fa; }
