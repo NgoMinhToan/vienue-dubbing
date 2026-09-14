@@ -2,9 +2,9 @@ name: Dubbing WebUI
 on:
   workflow_dispatch:
   push:
-    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
+    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'docker/**', 'scripts/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
   pull_request:
-    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
+    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'docker/**', 'scripts/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
 jobs:
   check:
     strategy:
@@ -29,3 +29,22 @@ jobs:
         run: npm install
       - working-directory: frontend
         run: npm run build
+  docker-smoke:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f docker/Dockerfile.dubbing -t dubbing:test .
+      - name: Verify non-root container and HTTP startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name dubbing-smoke -p 127.0.0.1:7861:7861 dubbing:test
+          trap 'docker logs dubbing-smoke; docker rm -f dubbing-smoke' EXIT
+          test "$(docker exec dubbing-smoke id -u)" != 0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:7861/api/health > /tmp/health.json; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:7861/ > /tmp/index.html
+          python -c 'import json; h=json.load(open("/tmp/health.json")); assert all(h["tools"].values()), h'
