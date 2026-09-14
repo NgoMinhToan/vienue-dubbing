@@ -11,6 +11,7 @@ class Cue(BaseModel):
     start: float = Field(ge=0)
     end: float = Field(gt=0)
     text: str = Field(min_length=1, max_length=10000)
+    original_text: str | None = None
     voice: str | None = None
     speed: float | None = Field(default=None, ge=0.5, le=3)
 
@@ -28,7 +29,7 @@ class Edit(BaseModel):
     speed: float = Field(default=1, ge=0.5, le=3)
     auto_fit: bool = True
     fit_limit: float = Field(default=1.6, ge=1, le=3)
-    background: Literal["duck", "original_duck", "quiet", "off"] = "duck"
+    background: Literal["duck", "original_duck", "original", "quiet", "off"] = "duck"
     audio_index: int | None = None
     cues: list[Cue] = Field(max_length=10000)
 
@@ -58,7 +59,7 @@ def parse_srt(raw: bytes) -> list[dict]:
         try:
             a, b = lines[0].split("-->")
             body = re.sub(r"<[^>]*>", "", " ".join(lines[1:])).strip()
-            result.append(Cue(start=seconds(a), end=seconds(b), text=body).model_dump())
+            result.append(Cue(start=seconds(a), end=seconds(b), text=body, original_text=body).model_dump())
         except (ValueError, IndexError) as exc:
             raise ValueError(f"SRT lỗi ở mục {number}: {exc}") from exc
     if not result or len(result) > 10000:
@@ -69,6 +70,19 @@ def parse_srt(raw: bytes) -> list[dict]:
 def voice_key(cue, project):
     payload = ["v3turbo-fp32-v1", cue["text"], cue.get("voice") or project["voice"]]
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
+
+
+def cue_warnings(cues, duration):
+    result = []
+    ordered = sorted(cues, key=lambda c: c["start"])
+    latest_end = 0
+    for i, cue in enumerate(ordered):
+        if cue["start"] < latest_end:
+            result.append({"cue": i + 1, "message": "Mốc SRT chồng với câu trước."})
+        if cue["end"] > duration:
+            result.append({"cue": i + 1, "message": "Mốc SRT vượt thời lượng video."})
+        latest_end = max(latest_end, cue["end"])
+    return result
 
 
 def timing(duration, start, next_start, speed, auto_fit=True, limit=1.6):

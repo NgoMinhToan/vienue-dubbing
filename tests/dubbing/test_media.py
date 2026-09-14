@@ -46,6 +46,10 @@ def test_export_exactly_two_tracks_from_multi_audio(tmp_path, media_tools, suffi
     # AAC priming can differ across containers; inspect codec and steady-state samples.
     assert audios[0]['codec'] == 'AAC'
     assert abs(np.sqrt(np.mean(x*x))-np.sqrt(np.mean(y*y))) < 0.01
+    def video_hash(path):
+        output = run('ffmpeg', ['-v','error','-i',path,'-map','0:v:0','-f','framemd5','-'])
+        return [line.split(',')[-1].strip() for line in output.splitlines() if line and not line.startswith('#')]
+    assert video_hash(source) == video_hash(output)
 
 
 def test_overlap_is_added_and_tail_preserved(tmp_path):
@@ -60,3 +64,19 @@ def test_overlap_is_added_and_tail_preserved(tmp_path):
     assert len(values)==72000
     assert np.max(abs(values[:24000]))==0
     assert np.mean(values[30000:])==pytest.approx(.4,abs=1e-6)
+
+
+@pytest.mark.parametrize('mode,base,speaking', [('duck',.3,.1),('original_duck',1,.22),('original',1,1),('quiet',.06,.06),('off',0,0)])
+def test_four_background_modes_preserve_stereo(tmp_path, media_tools, mode, base, speaking):
+    source = tmp_path/'base.wav'
+    sf.write(source, np.tile([.1,.05], (144000,1)), 48000, subtype='FLOAT')
+    voice = tmp_path/'voice.wav'
+    sf.write(voice, np.full(48000,.2), 48000, subtype='FLOAT')
+    project = {'media':{'duration':3,'video_start':0,'audio_tracks':[{'index':0,'start':0}]},
+               'video_file':source.name, 'audio_index':0,'background':mode}
+    output = tmp_path/'mix.wav'
+    mix(project,tmp_path,[{'start':1,'duration':1,'frames':48000,'path':voice}],output,threading.Event())
+    values, rate = sf.read(output)
+    assert rate == 48000 and values.shape == (144000,2)
+    assert values[24000] == pytest.approx([.1*base,.05*base],abs=1e-6)
+    assert values[72000] == pytest.approx([.2+.1*speaking,.2+.05*speaking],abs=1e-6)

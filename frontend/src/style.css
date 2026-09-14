@@ -970,3 +970,15 @@ main {
     padding: 20px;
   }
 }
+.cue-time { width: 105px; min-width: 0; font: 11px monospace; padding: 4px; }
+.cue-time[aria-invalid="true"] { border-color: #f87171; }
+.cue-meta { flex-wrap: wrap; height: auto; min-height: 23px; gap: 5px; }
+.timeline-cue { touch-action: none; cursor: grab; user-select: none; }
+.timeline-cue:active { cursor: grabbing; }
+.timeline-cue.pending { background: #343540; border-color: #737581; color: #dedee7; }
+.timeline-cue.overlap { background: #544015; border-color: #e5b63f; color: #ffe19a; }
+.timeline-cue.selected { outline: 2px solid #a77aff; outline-offset: 1px; }
+.timeline-legend { display: flex; gap: 14px; font-size: 10px; color: #a1a1b3; padding: 0 0 5px; }
+.timeline-legend .pending { color: #b0b0ba; }
+.timeline-legend .ready { color: #6edba0; }
+.timeline-legend .overlap { color: #f2c45a; }

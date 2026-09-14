@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import json
+import os
 from pathlib import Path
 import shutil
 from uuid import uuid4
@@ -12,7 +13,7 @@ from pydantic import BaseModel
 from typing import Literal
 
 from .config import ROOT, Settings, executable
-from .domain import Edit, parse_srt, voice_key, timing
+from .domain import Edit, parse_srt, voice_key, timing, cue_warnings
 from .store import Store, Conflict
 from .jobs import Jobs
 from .media import inspect_video
@@ -22,6 +23,7 @@ class JobRequest(BaseModel):
     kind: Literal["generate", "mp3", "mkv", "proxy", "sample"] = "generate"
     cue_id: str | None = None
     allow_overlap: bool = False
+    overflow_policy: Literal["keep", "skip"] | None = None
 
 
 def create_app(settings=None):
@@ -30,6 +32,18 @@ def create_app(settings=None):
     jobs = Jobs(store)
     presets = json.loads((ROOT / "src/vieneu/assets/voices_v3_turbo.json").read_text(encoding="utf-8"))
     voices = list(presets["presets"])
+
+    def copy_upload(source, target):
+        limit = int(os.environ.get("APP_MAX_VIDEO_BYTES", 20 * 1024**3))
+        reserve = int(os.environ.get("APP_MIN_FREE_BYTES", 512 * 1024**2))
+        total = 0
+        while chunk := source.read(1024 * 1024):
+            total += len(chunk)
+            if total > limit:
+                raise ValueError(f"Video vượt giới hạn {limit // 1024**2} MB.")
+            if shutil.disk_usage(settings.data).free < len(chunk) + reserve:
+                raise ValueError("Không đủ dung lượng đĩa để lưu video. Hãy giải phóng dung lượng.")
+            target.write(chunk)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -69,8 +83,9 @@ def create_app(settings=None):
     def describe(project):
         import soundfile as sf
         root = store.directory(project["id"])
-        proxies = [j for j in jobs.items.values() if j["project"] == project["id"] and j["kind"] == "proxy" and j["status"] == "complete" and j.get("video_file") == project["video_file"]]
+        proxies = [j for j in jobs.items.values() if j["project"] == project["id"] and j["kind"] == "proxy" and j["status"] == "complete" and j.get("video_file") == project["video_file"] and j.get("audio_index") == project["audio_index"]]
         project["proxy_file"] = proxies[-1]["file"] if proxies else None
+        project["cue_warnings"] = cue_warnings(project["cues"], project["media"]["duration"])
         cues = sorted(project["cues"], key=lambda c: c["start"])
         for i, cue in enumerate(cues):
             key = voice_key(cue, project)
@@ -115,7 +130,7 @@ def create_app(settings=None):
                 raise ValueError("Định dạng video chưa hỗ trợ.")
             path = root / ("source" + suffix)
             with path.open("wb") as target:
-                shutil.copyfileobj(video.file, target, length=1024*1024)
+                copy_upload(video.file, target)
             info = inspect_video(path)
             selected = next((a for a in info["audio_tracks"] if a["default"]), next(iter(info["audio_tracks"]), None))
             project = {"id": id, "revision": 1, "name": name, "voice": "Kim Thanh" if "Kim Thanh" in voices else voices[0],
@@ -143,7 +158,11 @@ def create_app(settings=None):
             raise ValueError("Track âm gốc không hợp lệ.")
         if len({c.id for c in values.cues}) != len(values.cues):
             raise ValueError("ID câu bị trùng.")
-        p.update(values.model_dump())
+        original = {c["id"]: c.get("original_text", c["text"]) for c in p["cues"]}
+        edits = values.model_dump()
+        for cue in edits["cues"]:
+            cue["original_text"] = original.get(cue["id"], cue["text"])
+        p.update(edits)
         p["revision"] += 1
         return describe(store.save(p, expected=values.revision))
 
@@ -170,7 +189,7 @@ def create_app(settings=None):
                         raise ValueError("Định dạng video chưa hỗ trợ.")
                     new_path = store.directory(id) / ("source-" + uuid4().hex + suffix)
                     with new_path.open("wb") as target:
-                        shutil.copyfileobj(video.file, target, length=1024*1024)
+                        copy_upload(video.file, target)
                     info = inspect_video(new_path)
                     selected = next((a for a in info["audio_tracks"] if a["default"]), next(iter(info["audio_tracks"]), None))
                     p.update(video_file=new_path.name, video_name=Path(video.filename).name, media=info,
@@ -191,6 +210,38 @@ def create_app(settings=None):
         shutil.rmtree(store.directory(id))
         return {"ok": True}
 
+    @app.post("/api/projects/{id}/cleanup")
+    def cleanup(id: str, confirm: bool = False):
+        if not confirm:
+            raise ValueError("Cần xác nhận dọn bản xuất/cache cũ.")
+        with jobs.lock:
+            p = store.get(id)
+            if any(j["project"] == id and j["status"] in ("queued", "running") for j in jobs.items.values()):
+                raise ValueError("Đợi hoặc dừng tác vụ trước khi dọn dữ liệu.")
+            root = store.directory(id).resolve()
+            removed = 0
+            # Keep current-revision outputs and a proxy matching the selected source track.
+            for jid, record in list(jobs.items.items()):
+                if record["project"] != id:
+                    continue
+                current = record["revision"] == p["revision"] and record["status"] == "complete"
+                proxy = record["kind"] == "proxy" and record["status"] == "complete" and record.get("video_file") == p["video_file"] and record.get("audio_index") == p["audio_index"]
+                if current or proxy:
+                    continue
+                folder = (root / "renders" / jid).resolve()
+                if folder.parent != root / "renders":
+                    continue
+                if folder.is_dir():
+                    removed += sum(f.stat().st_size for f in folder.rglob("*") if f.is_file())
+                    shutil.rmtree(folder)
+                jobs.items.pop(jid, None)
+            keys = {voice_key(c, p) + ".wav" for c in p["cues"]}
+            for clip in (root / "clips").glob("*.wav"):
+                if clip.name not in keys:
+                    removed += clip.stat().st_size
+                    clip.unlink()
+            return {"removed_bytes": removed}
+
     @app.post("/api/projects/{id}/jobs")
     def submit(id: str, request: JobRequest):
         p = store.get(id)
@@ -200,7 +251,7 @@ def create_app(settings=None):
             raise ValueError("Xuất bản cần toàn bộ dự án.")
         if request.kind == "mkv" and p["audio_index"] is None:
             raise ValueError("Video không có âm gốc. Chọn xuất MP3.")
-        return jobs.submit(p, request.kind, request.cue_id, request.allow_overlap)
+        return jobs.submit(p, request.kind, request.cue_id, request.allow_overlap, request.overflow_policy)
 
     @app.get("/api/jobs/{id}")
     def job(id: str):
@@ -223,7 +274,7 @@ def create_app(settings=None):
             if not job_path.exists():
                 raise HTTPException(409, "Bản xuất chưa hoàn thành.")
             record = json.loads(job_path.read_text(encoding="utf-8"))
-            matches = record.get("video_file") == p["video_file"] if record.get("kind") == "proxy" else record["revision"] == p["revision"]
+            matches = (record.get("video_file") == p["video_file"] and record.get("audio_index") == p["audio_index"]) if record.get("kind") == "proxy" else record["revision"] == p["revision"]
             if record["status"] != "complete" or not matches:
                 raise HTTPException(409, "Bản xuất không còn khớp với dự án. Hãy xuất lại.")
         return FileResponse(path, filename=(p["name"] + path.suffix) if download else None)

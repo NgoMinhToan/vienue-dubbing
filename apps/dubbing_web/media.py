@@ -49,7 +49,14 @@ def inspect_video(path):
     videos = [s for s in info["streams"] if s["codec_type"] == "video" and not s.get("disposition", {}).get("attached_pic")]
     if not videos:
         raise ValueError("File không có luồng video.")
-    duration = float(info.get("format", {}).get("duration", 0))
+    video_start = float(videos[0].get("start_time", 0))
+    container = info.get("format", {}).get("format_name", "")
+    if videos[0].get("duration") is not None:
+        duration = float(videos[0]["duration"])
+    else:
+        duration = float(info.get("format", {}).get("duration", 0))
+        if "matroska" in container:
+            duration -= max(0, video_start)
     if duration <= 0 or duration > 24 * 3600:
         raise ValueError("Video phải có thời lượng hợp lệ, tối đa 24 giờ.")
     audios = [{"index": s["index"], "codec": s["codec_name"], "channels": s.get("channels"),
@@ -89,7 +96,7 @@ def mix(project, directory, rendered, destination, cancel):
         sync = f"adelay={round(offset*1000)}:all=1" if offset >= 0 else f"atrim=start={-offset},asetpts=PTS-STARTPTS"
         run("ffmpeg", ["-v", "error", "-nostdin", "-y", "-i", source, "-map", f"0:{project['audio_index']}",
                        "-vn", "-af", sync, "-ac", "2", "-ar", "48000", "-c:a", "pcm_f32le", background], cancel)
-    base_gain, speaking_gain = {"duck": (0.3, 0.10), "original_duck": (1, 0.22), "quiet": (0.06, 0.06), "off": (0, 0)}[project["background"]]
+    base_gain, speaking_gain = {"duck": (0.3, 0.10), "original_duck": (1, 0.22), "original": (1, 1), "quiet": (0.06, 0.06), "off": (0, 0)}[project["background"]]
     # Gain choices are project defaults, not claimed to reproduce proprietary mixing.
     intervals = sorted((max(0, c["start"]), c["start"] + c["duration"]) for c in rendered)
     merged = []
@@ -142,7 +149,16 @@ def mux_mkv(project, directory, dubbed, destination, cancel):
     if project["audio_index"] is None:
         raise ValueError("Video không có âm gốc nên không thể xuất MKV đúng hai track. Bạn vẫn có thể tải MP3.")
     source = directory / project["video_file"]
-    info = identify(source)
+    original_source = source
+    try:
+        info = identify(source)
+        if not info.get("tracks"):
+            raise RuntimeError("Không nhận diện được tracks.")
+    except RuntimeError:
+        source = destination.parent / "compatible-source.mkv"
+        run("ffmpeg", ["-v", "error", "-nostdin", "-y", "-i", original_source,
+                       "-map", f"0:{project['media']['video_index']}", "-map", "0:a?", "-c", "copy", source], cancel)
+        info = identify(source)
     tracks = info.get("tracks", [])
     video = next((t["id"] for t in tracks if t["type"] == "video"), None)
     audios = [t for t in tracks if t["type"] == "audio"]
@@ -154,18 +170,19 @@ def mux_mkv(project, directory, dubbed, destination, cancel):
     dub_id = next(t["id"] for t in identify(dubbed)["tracks"] if t["type"] == "audio")
     args = ["-o", destination]
     if "matroska" in project["media"]["container"]:
+        origin_shift = -round(project["media"].get("video_start", 0) * 1000)
         args += ["--track-order", f"0:{video},0:{original_id},1:{dub_id}", "--video-tracks", str(video),
                  "--audio-tracks", str(original_id), "--no-subtitles", "--no-attachments",
                  "--track-name", f"{original_id}:Original", "--default-track-flag", f"{original_id}:no",
-                 "--forced-display-flag", f"{original_id}:no", source]
+                 "--forced-display-flag", f"{original_id}:no", "--sync", f"{video}:{origin_shift}", "--sync", f"{original_id}:{origin_shift}", source]
     else:
         original = destination.parent / "original.mka"
-        run("ffmpeg", ["-v", "error", "-nostdin", "-y", "-i", source, "-map", f"0:{project['audio_index']}",
+        run("ffmpeg", ["-v", "error", "-nostdin", "-y", "-i", original_source, "-map", f"0:{project['audio_index']}",
                        "-vn", "-sn", "-dn", "-c:a", "copy", original], cancel)
         oid = next(t["id"] for t in identify(original)["tracks"] if t["type"] == "audio")
         extracted = probe(original)["streams"][0]
         selected = source_audios[ordinal]
-        correction = round((selected["start"] - float(extracted.get("start_time", 0))) * 1000)
+        correction = round((selected["start"] - project["media"].get("video_start", 0) - float(extracted.get("start_time", 0))) * 1000)
         args += ["--track-order", f"0:{video},1:{oid},2:{dub_id}", "--video-tracks", str(video), "--no-audio",
                  "--no-subtitles", "--no-attachments", source, "--no-video", "--no-subtitles", "--no-chapters",
                  "--no-global-tags", "--audio-tracks", str(oid), "--sync", f"{oid}:{correction}",

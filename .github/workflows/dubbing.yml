@@ -1,0 +1,31 @@
+name: Dubbing WebUI
+on:
+  workflow_dispatch:
+  push:
+    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
+  pull_request:
+    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python -m pip install -r requirements-dubbing.lock.txt
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg mkvtoolnix libsndfile1
+      - if: runner.os == 'Windows'
+        run: python scripts/setup_tools.py
+      - run: python -m pytest tests/dubbing -q
+      - working-directory: frontend
+        run: npm install
+      - working-directory: frontend
+        run: npm run build

@@ -24,3 +24,4 @@ finetune/output/
 
 # Merged Models
 merged_models_cache/
+artifacts/

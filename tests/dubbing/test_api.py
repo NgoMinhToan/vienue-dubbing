@@ -35,6 +35,47 @@ def test_api_revision_validation_and_origin(tmp_path):
         assert client.get('/api/projects/'+p['id']+'/files/../../projects.sqlite3').status_code==404
 
 
+def test_edit_keeps_original_text(tmp_path):
+    app = create_app(Settings(tmp_path))
+    with TestClient(app) as client:
+        p, _ = seed(app)
+        before = p['cues'][0]['text']
+        p['cues'][0]['text'] = 'Edited words'
+        p['cues'][0]['original_text'] = 'Should not overwrite'
+        result = client.put('/api/projects/' + p['id'], json=p)
+        assert result.status_code == 200
+        assert result.json()['cues'][0]['original_text'] == before
+
+
+def test_upload_limit_keeps_old_video(tmp_path, monkeypatch):
+    monkeypatch.setenv('APP_MAX_VIDEO_BYTES', '3')
+    app = create_app(Settings(tmp_path))
+    with TestClient(app) as client:
+        p, root = seed(app)
+        result = client.post('/api/projects/' + p['id'] + '/source', data={'revision':1}, files={'video':('new.mp4', b'too many bytes')})
+        assert result.status_code == 400
+        assert app.state.store.get(p['id'])['video_file'] == 'source.mp4'
+        assert not list(root.glob('source-*'))
+
+
+def test_cleanup_preserves_source_and_current_outputs(tmp_path):
+    app=create_app(Settings(tmp_path))
+    with TestClient(app) as client:
+        p,root=seed(app)
+        (root/'source.mp4').write_bytes(b'original')
+        for jid,revision in [('old',0),('current',1)]:
+            folder=root/'renders'/jid;folder.mkdir()
+            (folder/'dubbed.mp3').write_bytes(b'output')
+            app.state.jobs.items[jid]={'id':jid,'project':p['id'],'kind':'mp3','revision':revision,'status':'complete'}
+        assert client.post('/api/projects/'+p['id']+'/cleanup').status_code==400
+        response=client.post('/api/projects/'+p['id']+'/cleanup?confirm=true')
+        assert response.status_code==200
+        assert not (root/'renders'/'old').exists()
+        assert (root/'renders'/'current'/'dubbed.mp3').exists()
+        assert (root/'source.mp4').read_bytes()==b'original'
+        app.state.jobs.items.clear()
+
+
 def test_output_is_unavailable_after_edit(tmp_path):
     app=create_app(Settings(tmp_path))
     with TestClient(app) as client:

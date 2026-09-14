@@ -34,6 +34,7 @@ type Cue = {
   fit?: { speed: number; duration: number; overflow: number };
 };
 type Project = {
+  cue_warnings?: {cue: number; message: string}[];
   proxy_file?: string | null;
   last_job?: Job | null;
   id: string;
@@ -85,6 +86,7 @@ type Health = {
 const backgrounds = [
   ["duck", "Nhỏ lại, hạ thêm khi lồng tiếng nói"],
   ["original_duck", "Giữ nguyên, chỉ hạ khi lồng tiếng nói"],
+  ["original", "Giữ nguyên"],
   ["quiet", "Rất nhỏ"],
   ["off", "Tắt âm gốc"],
 ];
@@ -108,7 +110,25 @@ const stamp = (s: number) =>
 const active = (j: Job | null) =>
   !!j && ["queued", "running"].includes(j.status);
 
+const timeText = (seconds: number) => {
+  const ms = Math.round(seconds * 1000);
+  return `${String(Math.floor(ms / 3600000)).padStart(2,"0")}:${String(Math.floor(ms / 60000) % 60).padStart(2,"0")}:${String(Math.floor(ms / 1000) % 60).padStart(2,"0")}.${String(ms % 1000).padStart(3,"0")}`;
+};
+function TimeField({value,label,onCommit}:{value:number;label:string;onCommit:(v:number)=>boolean}) {
+  const [draft,setDraft] = useState(timeText(value));
+  const [invalid,setInvalid] = useState(false);
+  useEffect(()=>{setDraft(timeText(value));setInvalid(false);},[value]);
+  function commit() {
+    const match = /^(\d+):([0-5]\d):([0-5]\d)(?:[.,](\d{1,3}))?$/.exec(draft.trim());
+    const seconds = match ? Number(match[1])*3600 + Number(match[2])*60 + Number(match[3]) + Number((match[4]||"").padEnd(3,"0"))/1000 : NaN;
+    if (!Number.isFinite(seconds) || !onCommit(seconds)) { setInvalid(true); return; }
+    setInvalid(false); setDraft(timeText(seconds));
+  }
+  return <input className="cue-time" aria-label={label} aria-invalid={invalid} title="HH:MM:SS.mmm — Enter hoặc rời ô để lưu" value={draft} onChange={e=>setDraft(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();if(e.key==="Escape"){setDraft(timeText(value));setInvalid(false);}}} />;
+}
+
 function App() {
+  const [keepOverflow, setKeepOverflow] = useState(true);
   const [list, setList] = useState<Summary[]>([]),
     [project, setProject] = useState<Project | null>(null),
     [voices, setVoices] = useState<{ id: string; description: string }[]>([]),
@@ -134,6 +154,10 @@ function App() {
   const saving = useRef<Promise<Project | null> | null>(null);
   const oneShot = useRef<HTMLAudioElement | null>(null);
   const playhead = useRef<HTMLDivElement>(null);
+  const timelineScroll = useRef<HTMLDivElement>(null);
+  const following = useRef("");
+  const dragging = useRef<{id:string;x:number;start:number;end:number;scale:number;moved:boolean;delta:number} | null>(null);
+  const suppressClick = useRef(false);
   const [videoFailed, setVideoFailed] = useState(false);
   const replaceVideo = useRef<HTMLInputElement>(null);
   const replaceSrt = useRef<HTMLInputElement>(null);
@@ -182,14 +206,30 @@ function App() {
     let frame = 0;
     let lastLabel = 0;
     const tick = (now: number) => {
-      const t = video.current?.currentTime || 0;
+      const t = preview && video.current?.ended ? (audio.current?.currentTime || video.current.currentTime) : (video.current?.currentTime || 0);
       if (playhead.current) playhead.current.style.left = `${Math.min(100, t / project.media.duration * 100)}%`;
-      if (now - lastLabel >= 100) { setTime(t); lastLabel = now; }
+      if (now - lastLabel >= 100) {
+        setTime(t); lastLabel = now;
+        const p = latest.current;
+        if (p && !video.current?.paused && !dragging.current) {
+          const candidates = p.cues.map((c,i)=>({c,i})).filter(({c})=>c.start<=t && t<Math.max(c.end,c.start+(c.fit?.duration||0)));
+          const current = candidates.sort((a,b)=>b.c.start-a.c.start)[0];
+          if (current && following.current !== current.c.id) {
+            following.current = current.c.id; setSelected(current.c.id);
+            virtual.scrollToIndex(current.i,{align:"center"});
+          } else if (!current) following.current = "";
+          const pane = timelineScroll.current;
+          if (pane) {
+            const x = Math.min(1,t/p.media.duration) * pane.scrollWidth;
+            if (x < pane.scrollLeft+20 || x > pane.scrollLeft+pane.clientWidth-40) pane.scrollTo({left:Math.max(0,x-pane.clientWidth*.3),behavior:"smooth"});
+          }
+        }
+      }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [page, project?.id, project?.media.duration]);
+  }, [page, project?.id, project?.media.duration, preview]);
   useEffect(() => {
     const before = (e: BeforeUnloadEvent) => {
       if (dirty) {
@@ -261,7 +301,7 @@ function App() {
       setJob(
         await api<Job>(
           `/projects/${p.id}/jobs`,
-          json("POST", { kind, cue_id: cueId, allow_overlap: allow }),
+          json("POST", { kind, cue_id: cueId, allow_overlap: allow, overflow_policy: allow || keepOverflow ? "keep" : "skip" }),
         ),
       );
       setMenu(false);
@@ -582,6 +622,11 @@ function App() {
                   </button>
                   {menu && (
                     <div className="export-menu">
+                      <label className="check">
+                        <input type="checkbox" checked={keepOverflow} onChange={e => setKeepOverflow(e.target.checked)} />
+                        Cho phát tiếp câu tràn (chấp nhận chồng lời)
+                      </label>
+                      <p className="hint">{keepOverflow ? "Giữ toàn bộ lời, giữ mốc bắt đầu và cho chồng nhau nếu vẫn quá dài sau giới hạn tăng tốc. Xuất thẳng, không hỏi lại." : "Bỏ qua toàn bộ lời lồng của câu vẫn tràn sau giới hạn tăng tốc; không chỉ cắt phần đuôi. Giữ các câu khác và âm nền theo lựa chọn bên dưới. Xuất thẳng, không hỏi lại."}</p>
                       <label>
                         Âm gốc trong bản lồng tiếng
                         <select
@@ -629,7 +674,7 @@ function App() {
                   controls
                     src={file(project.proxy_file || project.video_file)}
                     onLoadedData={() => setVideoFailed(false)}
-                  muted={preview}
+                  muted={preview || (project.media.audio_tracks.length > 1 && !project.proxy_file)}
                   onTimeUpdate={() => {
                     const t = video.current?.currentTime || 0;
                     setTime(t);
@@ -646,9 +691,10 @@ function App() {
                       audio.current?.play().catch((e) => setError(e.message));
                     }
                   }}
-                  onPause={() => audio.current?.pause()}
+                  onPause={() => { if (!video.current?.ended) audio.current?.pause(); }}
+                  onRateChange={() => { if (audio.current && video.current) audio.current.playbackRate = video.current.playbackRate; }}
                   onSeeked={() => {
-                    if (preview && audio.current)
+                    if (preview && audio.current && !video.current?.ended)
                       audio.current.currentTime = video.current!.currentTime;
                   }}
                     onError={() => setVideoFailed(true)}
@@ -672,8 +718,9 @@ function App() {
                   {preview ? "Đang xem bản lồng tiếng · Chuyển về bản gốc" : "Xem trước bản lồng tiếng"}
                 </button>
                 <p className={"playback-mode" + (preview ? " is-dubbed" : "")} role="status">
-                  {preview ? "Âm thanh: bản lồng tiếng đã trộn" : "Âm thanh: bản gốc của video"}
+                  {preview ? "Âm thanh: bản lồng tiếng đã trộn" : project.media.audio_tracks.length > 1 && !project.proxy_file ? "Âm gốc tạm tắt: tạo video tương thích để nghe đúng track đã chọn." : "Âm thanh: bản gốc của video"}
                 </p>
+                {preview && <p className="hint">Nếu lời dài hơn hình, âm thanh tiếp tục phát hết phần đuôi. Bấm chuyển về bản gốc để dừng.</p>}
                 <audio
                   ref={audio}
                   src={
@@ -683,12 +730,17 @@ function App() {
                 <p className="hint">
                   Bấm vào một câu hoặc timeline để tua tới đúng chỗ.
                 </p>
-                {videoFailed && <button disabled={busy || active(job)} onClick={() => void run("proxy")}>Tạo video tương thích để xem trước</button>}
+                {(videoFailed || (project.media.audio_tracks.length > 1 && !project.proxy_file)) && <div className="fit-panel"><p>Để xem trước đúng track âm gốc đã chọn, hãy tạo bản video tương thích.</p><button disabled={busy || active(job)} onClick={() => void run("proxy")}>Tạo video tương thích để xem trước</button></div>}
+                {!!project.cue_warnings?.length && <details className="fit-panel"><summary>{project.cue_warnings.length} cảnh báo mốc SRT</summary>{project.cue_warnings.map((w,i) => <p key={i}>Câu {w.cue}: {w.message}</p>)}</details>}
                 <div className="source-info">
                   <Film size={16} />
                   <span>{project.video_name}</span>
                   <small>{stamp(project.media.duration)}</small>
                 </div>
+                <button disabled={busy || active(job)} onClick={async()=>{
+                  if(!confirm("Dọn bản xuất lỗi/thừa và cache câu không còn dùng? Video nguồn và kết quả hiện hành được giữ."))return;
+                  try {const p=await save();if(!p)return;const result=await api<{removed_bytes:number}>(`/projects/${p.id}/cleanup?confirm=true`,{method:"POST"});setError(`Đã dọn ${(result.removed_bytes/1024/1024).toFixed(1)} MB.`);}catch(e){setError((e as Error).message);}
+                }}>Dọn bản xuất và cache cũ</button>
                 <div className="speed-row">
                   <button disabled={busy || active(job)} onClick={() => replaceVideo.current?.click()}>Thay video</button>
                   <button disabled={busy || active(job)} onClick={() => replaceSrt.current?.click()}>Nhập SRT khác</button>
@@ -835,11 +887,11 @@ function App() {
                           onClick={() => setSelected(c.id)}
                         >
                           <div className="cue-meta">
+                            <TimeField value={c.start} label={`Bắt đầu câu ${v.index+1}`} onCommit={n=>{if(n>=c.end)return false;if(n!==c.start)editCue(c.id,{start:n});return true;}} />
+                            <span>→</span>
+                            <TimeField value={c.end} label={`Kết thúc câu ${v.index+1}`} onCommit={n=>{if(n<=c.start)return false;if(n!==c.end)editCue(c.id,{end:n});return true;}} />
                             <button onClick={() => seek(c.start, c.id)}>
                               #{v.index + 1}{" "}
-                              <span>
-                                {stamp(c.start)} → {stamp(c.end)}
-                              </span>
                             </button>
                             <span
                               className={c.ready ? "status good" : "status"}
@@ -948,7 +1000,8 @@ function App() {
                   {stamp(time)} / {stamp(project.media.duration)}
                 </span>
               </div>
-              <div className="timeline-scroll">
+              <div className="timeline-legend"><span className="pending">Chưa tạo</span><span className="ready">Đã tạo</span><span className="overlap">Chồng / tràn</span><span>Kéo câu để dời mốc, giữ nguyên độ dài</span></div>
+              <div className="timeline-scroll" ref={timelineScroll}>
                 <div
                   className="timeline-track"
                   style={{ width: `${zoom * 100}%` }}
@@ -972,15 +1025,39 @@ function App() {
                     <button
                       key={c.id}
                       className={
-                        "timeline-cue " + (selected === c.id ? "selected" : "")
+                        "timeline-cue " + (!c.ready ? "pending " : (c.fit?.overflow || 0) > .02 || project.cues.some(other=>other.id!==c.id && other.start < Math.max(c.end,c.start+(c.fit?.duration||0)) && Math.max(other.end,other.start+(other.ready ? other.fit?.duration||0 : 0)) > c.start) ? "overlap " : "ready ") + (selected === c.id ? "selected" : "")
                       }
                       style={{
                         left: `${(c.start / project.media.duration) * 100}%`,
                         width: `${Math.max(0.12, ((c.end - c.start) / project.media.duration) * 100)}%`,
                       }}
                       title={c.text}
+                      onPointerDown={e=>{
+                        if(e.button!==0)return;
+                        const width=e.currentTarget.parentElement!.getBoundingClientRect().width;
+                        dragging.current={id:c.id,x:e.clientX,start:c.start,end:c.end,scale:project.media.duration/width,moved:false,delta:0};
+                        suppressClick.current=false;
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        video.current?.pause(); audio.current?.pause();
+                        setSelected(c.id);
+                      }}
+                      onPointerMove={e=>{
+                        const d=dragging.current;if(!d||d.id!==c.id)return;
+                        if(Math.abs(e.clientX-d.x)>3)d.moved=true;
+                        if(!d.moved)return;
+                        d.delta=Math.max(-d.start,(e.clientX-d.x)*d.scale);
+                        e.currentTarget.style.left=`${(d.start+d.delta)/project.media.duration*100}%`;
+                      }}
+                      onPointerUp={e=>{
+                        const d=dragging.current;if(!d||d.id!==c.id)return;
+                        dragging.current=null;suppressClick.current=d.moved;
+                        e.currentTarget.releasePointerCapture(e.pointerId);
+                        if(d.moved){const start=Math.round((d.start+d.delta)*1000)/1000;editCue(c.id,{start,end:Math.round((start+d.end-d.start)*1000)/1000});virtual.scrollToIndex(i,{align:"center"});}
+                      }}
+                      onPointerCancel={e=>{dragging.current=null;e.currentTarget.style.left=`${c.start/project.media.duration*100}%`;}}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if(suppressClick.current){suppressClick.current=false;return;}
                         seek(c.start, c.id);
                         virtual.scrollToIndex(i, { align: "center" });
                       }}

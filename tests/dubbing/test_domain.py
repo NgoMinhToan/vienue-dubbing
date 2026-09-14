@@ -23,6 +23,14 @@ def test_gap_available_and_overflow_never_moves_start():
     assert timing(2, 1, 1, 1)['overflow'] == 2
 
 
+def test_source_text_and_nested_overlap_warnings():
+    from apps.dubbing_web.domain import cue_warnings
+    cues = parse_srt(b'1\n00:00:00,000 --> 00:00:10,000\nOriginal\n\n2\n00:00:01,000 --> 00:00:02,000\nSecond\n\n3\n00:00:03,000 --> 00:00:04,000\nThird')
+    assert cues[0]['original_text'] == 'Original'
+    warnings = cue_warnings(cues, 5)
+    assert {w['cue'] for w in warnings} == {1, 2, 3}
+
+
 def test_inherited_voice_cache_and_speed_independent():
     cue = {'text': 'Xin chào', 'voice': None}
     project = {'voice': 'Kim Thanh', 'speed': 1}

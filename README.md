@@ -1,4 +1,14 @@
-# 🦜 VieNeu-TTS
+# vienue-dubbing
+
+WebUI lồng tiếng cục bộ trên CPU, dựa trên VieNeu-TTS v3 Turbo. Nhập video và SRT, chỉnh từng câu, xuất MP3 hoặc MKV có hai track âm thanh.
+
+- [Hướng dẫn cài đặt và sử dụng](README-DUBBING.vi.md)
+- [Checklist triển khai](docs/EXECUTION_PLAN.vi.md)
+- [Lịch sử thay đổi](CHANGELOG.md)
+
+Repository riêng: https://github.com/NgoMinhToan/vienue-dubbing. Nội dung bên dưới là tài liệu SDK upstream, được giữ để tham khảo; các dịch vụ và tính năng SDK không phải đều có trong WebUI này.
+
+# 🦜 VieNeu-TTS — tài liệu upstream
 
 [![Awesome](https://img.shields.io/badge/Awesome-NLP-green?logo=github)](https://github.com/keon/awesome-nlp)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white)](https://discord.gg/yJt8kzjzWZ)
