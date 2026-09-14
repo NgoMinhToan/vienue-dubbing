@@ -2,6 +2,8 @@
 
 ## Cập nhật 14/09
 
+**Mốc nghiệm thu giai đoạn 1:** xem `EXECUTION_PLAN.vi.md` để có checklist mới nhất. CI 34869583419 đã qua Windows/Linux và build + chạy Docker non-root. Cache bản phối và dọn cache/bản xuất cũ đã có. Editor 398 câu đã thử cuộn; TTS CPU 60 câu/timeline 600 giây hoàn thành trong 580,05 giây. Các dòng lịch sử bên dưới mô tả những lần kiểm tra trước, không phải danh sách việc còn lại hiện hành.
+
 - Job được ghi nguyên tử ngay khi vào hàng đợi và sau mỗi câu. Sau restart, job queued/running được đánh dấu gián đoạn cả trên đĩa; người dùng tạo tiếp sẽ dùng lại các câu đã cache.
 - Đã kiểm thử hủy trong câu cuối: trạng thái cancelled, giữ WAV để tiếp tục, không báo complete sai.
 - Sửa lỗi MKV nguồn có start khác 0 làm lệch track lồng tiếng. Chuẩn hóa timestamp video/audio gốc và hiệu chỉnh riêng nhánh MP4. Sửa cách đọc duration khi format/stream dùng quy ước khác nhau.

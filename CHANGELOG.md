@@ -14,7 +14,8 @@
 ### Kiểm chứng
 - 29 kiểm thử qua trong môi trường Python mới trên Windows.
 - Benchmark TTS CPU 60 câu trên timeline 600 giây: 580,05 giây tổng hợp/xuất. Không phải phép đo 600 giây lời nói liên tục.
-- TypeScript và Vite production build đã qua. Linux CI và rebuild Docker của mốc này còn chờ nghiệm thu.
+- TypeScript và Vite production build đã qua. CI 34869583419 qua Windows/Linux và build/khởi động Docker non-root, health và giao diện HTTP.
+- Kiểm thử bổ sung fallback MOV tên Unicode qua trên Windows; editor 398 câu cuộn với 6–11 thẻ DOM, không có lỗi JavaScript trong lượt kiểm tra.
 
 ### Kế hoạch tiếp theo
 - Repo riêng `NgoMinhToan/vienue-dubbing` đã được tạo và nhận source. Workflow SDK/PyPI kế thừa chỉ chạy ở upstream.

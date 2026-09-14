@@ -7,10 +7,12 @@ Ngày bắt đầu: 14/09/2026. Mỗi mục chỉ đánh dấu hoàn tất sau k
 - [x] Rà soát Git, backend, editor, pipeline media và các kết quả thử trước đây.
 - [x] Cache bản phối theo nội dung/revision/chế độ câu tràn; không sử dụng bản phối cũ sau khi tạo lại giọng.
 - [x] Dọn cache và bản xuất cũ qua thao tác có xác nhận, bảo vệ nguồn và kết quả hiện hành.
-- [ ] Củng cố job recovery/cancellation, kiểm thử nguồn timestamp/VFR và giao diện có nhiều câu.
+- [x] Củng cố job recovery/cancellation, kiểm thử nguồn timestamp/VFR và giao diện 398 câu (6–11 thẻ DOM khi cuộn).
 - [x] Chạy TTS workload dài: 60 câu/timeline 600 giây, mất 580,05 giây trên CPU. Không tương đương 600 giây lời đọc liên tục; chưa đo RAM peak.
-- [ ] Kiểm thử Windows/Linux, build lại frontend và gói Windows/Docker.
-- [ ] Cập nhật README/CHANGELOG, commit mốc nghiệm thu và xác nhận hoàn thành giai đoạn.
+- [x] Kiểm thử Windows/Linux, build lại frontend và gói Windows/Docker. CI 34869583419 qua cả hai OS và build/khởi động container non-root.
+- [x] Cập nhật README/CHANGELOG, commit mốc nghiệm thu và xác nhận hoàn thành giai đoạn.
+
+Giai đoạn 1 hoàn thành trong phạm vi checklist này. Giới hạn kiểm chứng: chưa thử mọi codec/edit list, chưa đo RAM peak phim dài; môi trường Windows sạch là venv mới trên máy hiện tại. Tiến độ tải model hiện ở mức trạng thái, chưa có phần trăm từng file. Docker Desktop local không chạy; bản build sạch được kiểm chứng trên GitHub Linux runner.
 
 ## Giai đoạn 2 — Các chức năng đã dự kiến
 
