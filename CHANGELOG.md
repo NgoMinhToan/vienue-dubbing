@@ -17,5 +17,6 @@
 - TypeScript và Vite production build đã qua. Linux CI và rebuild Docker của mốc này còn chờ nghiệm thu.
 
 ### Kế hoạch tiếp theo
+- Repo riêng `NgoMinhToan/vienue-dubbing` đã được tạo và nhận source. Workflow SDK/PyPI kế thừa chỉ chạy ở upstream.
 - Thư viện giọng và từ điển phát âm đã được người dùng xác nhận triển khai.
 - GHCR, duyệt thư mục nguồn/mount Docker và hàng đợi phiên bản theo checklist.

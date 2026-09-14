@@ -7,6 +7,8 @@ on:
 
 jobs:
   build_and_publish:
+    # This fork publishes its WebUI separately; upstream SDK releases stay upstream.
+    if: github.repository == 'pnnbao97/VieNeu-TTS'
     name: Build & Publish VieNeu-TTS
     runs-on: ubuntu-latest
     steps:

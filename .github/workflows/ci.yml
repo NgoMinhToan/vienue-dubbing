@@ -8,6 +8,8 @@ on:
 
 jobs:
   test:
+    # The local dubbing application has its own Windows/Linux workflow.
+    if: github.repository == 'pnnbao97/VieNeu-TTS'
     runs-on: ubuntu-latest
     strategy:
       matrix:
