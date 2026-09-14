@@ -2,9 +2,18 @@ name: Dubbing WebUI
 on:
   workflow_dispatch:
   push:
+    branches: [main]
+    tags: ['v*']
     paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'docker/**', 'scripts/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
   pull_request:
     paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'docker/**', 'scripts/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
+  release:
+    types: [published]
+permissions:
+  contents: read
+concurrency:
+  group: dubbing-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   check:
     strategy:
@@ -48,3 +57,43 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:7861/ > /tmp/index.html
           python -c 'import json; h=json.load(open("/tmp/health.json")); assert all(h["tools"].values()), h'
+  publish:
+    needs: docker-smoke
+    if: github.repository == 'NgoMinhToan/vienue-dubbing' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v4.3.0
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ghcr.io/ngominhtoan/vienue-dubbing
+          flavor: latest=false
+          tags: |
+            type=sha,format=long
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
+      - uses: docker/build-push-action@v7
+        id: image
+        with:
+          context: .
+          file: docker/Dockerfile.dubbing
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Verify published digest
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: docker buildx imagetools inspect "ghcr.io/ngominhtoan/vienue-dubbing@$IMAGE_DIGEST"
