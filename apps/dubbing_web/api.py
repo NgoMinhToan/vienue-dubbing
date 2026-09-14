@@ -19,6 +19,7 @@ from .jobs import Jobs
 from .media import inspect_video
 from .library import install_library
 from .pronunciation import install_dictionary
+from .media_browser import install_media_browser
 
 
 class JobRequest(BaseModel):
@@ -146,6 +147,8 @@ def create_app(settings=None):
         except Exception:
             shutil.rmtree(root)
             raise
+
+    install_media_browser(app, create)
 
     @app.get("/api/projects/{id}")
     def get(id: str):

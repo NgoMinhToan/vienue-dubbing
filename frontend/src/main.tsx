@@ -23,6 +23,7 @@ import {
 import "./style.css";
 import VoiceLibrary from "./VoiceLibrary";
 import Pronunciation from "./Pronunciation";
+import MediaBrowser from "./MediaBrowser";
 
 type Cue = {
   id: string;
@@ -130,6 +131,8 @@ function TimeField({value,label,onCommit}:{value:number;label:string;onCommit:(v
 }
 
 function App() {
+  const [sourceMode,setSourceMode]=useState('upload');
+  const [localSources,setLocalSources]=useState({video:'',srt:''});
   const [keepOverflow, setKeepOverflow] = useState(true);
   const [list, setList] = useState<Summary[]>([]),
     [project, setProject] = useState<Project | null>(null),
@@ -1140,7 +1143,7 @@ function App() {
               setError("");
               try {
                 const form = new FormData(e.currentTarget);
-                const p = await api<Project>("/projects", {
+                const p = sourceMode === 'local' ? await api<Project>('/media/import',json('POST',{name:form.get('name'),...localSources})) : await api<Project>("/projects", {
                   method: "POST",
                   body: form,
                 });
@@ -1167,6 +1170,7 @@ function App() {
               </button>
             </div>
             <p>Video và phụ đề được xử lý trên máy của bạn.</p>
+            <label>Nguồn dữ liệu<select value={sourceMode} onChange={e=>{setSourceMode(e.target.value);setLocalSources({video:'',srt:''});}}><option value="upload">Tải file từ trình duyệt</option><option value="local">Chọn trong thư mục server</option></select></label>
             <label>
               Tên dự án
               <input
@@ -1176,7 +1180,7 @@ function App() {
                 required
               />
             </label>
-            <label className="file-drop">
+            {sourceMode === 'local' ? <MediaBrowser onChange={(video,srt)=>setLocalSources({video,srt})}/> : <><label className="file-drop">
               <Upload size={24} />
               <strong>Chọn video</strong>
               <small>MP4, MKV, MOV, AVI, WEBM</small>
@@ -1192,11 +1196,12 @@ function App() {
               <strong>Chọn phụ đề .srt</strong>
               <input name="srt" type="file" accept=".srt" required />
             </label>
+            </>}
             <div className="modal-footer">
               <button type="button" onClick={() => setCreate(false)}>
                 Hủy
               </button>
-              <button className="primary" disabled={busy}>
+              <button className="primary" disabled={busy || (sourceMode==='local' && (!localSources.video||!localSources.srt))}>
                 {busy ? "Đang nhập dữ liệu…" : "Tạo dự án"}
                 <ArrowLeft size={15} style={{ transform: "rotate(180deg)" }} />
               </button>

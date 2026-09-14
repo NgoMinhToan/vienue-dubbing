@@ -31,9 +31,9 @@ Giai đoạn 1 hoàn thành trong phạm vi checklist này. Giới hạn kiểm 
 - [ ] Commit + hướng dẫn fork/permissions/pull image.
 
 ### 3.2 Chọn video/SRT trong thư mục
-- [ ] APP_MEDIA_ROOT cấu hình thư mục gốc; mặc định thư mục hiện hành. Docker mount host tùy ý vào root này.
-- [ ] API duyệt thư mục, lọc video/SRT; chặn traversal và symlink ra ngoài root.
-- [ ] UI chọn nguồn từ thư mục server cùng tùy chọn upload hiện có; CLI hỗ trợ tạo dự án từ đường dẫn.
+- [x] APP_MEDIA_ROOT cấu hình thư mục gốc; mặc định thư mục hiện hành. Docker mount host tùy ý vào root này.
+- [x] API duyệt thư mục, lọc video/SRT; chặn traversal và symlink ra ngoài root.
+- [x] UI chọn nguồn từ thư mục server cùng tùy chọn upload hiện có; CLI hỗ trợ tạo dự án từ đường dẫn.
 - [ ] Kiểm thử Windows/Linux, Unicode, quyền chỉ đọc và file không tồn tại.
 - [ ] Commit + tài liệu ví dụ volume mount.
 

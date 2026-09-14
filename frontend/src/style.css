@@ -1000,3 +1000,6 @@ main {
 .rule-card input:not([type=checkbox]) { width:180px; }
 .library-page textarea { width:100%; min-height:90px; margin-bottom:12px; }
 .spoken-preview { white-space:pre-wrap; color:#bba2fa; }
+.media-entries { max-height:180px; overflow:auto; border:1px solid #30313e; margin:8px 0; }
+.media-entries button { display:block; width:100%; text-align:left; border-radius:0; }
+.media-browser small,.media-browser p { overflow-wrap:anywhere; }
