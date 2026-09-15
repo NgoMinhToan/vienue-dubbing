@@ -177,6 +177,21 @@ function App() {
     estimateSize: () => 192,
     overscan: 4,
   });
+  useEffect(() => {
+    const pane = timelineScroll.current;
+    if (page !== 'editor' || !pane) return;
+    // Non-passive listener keeps Ctrl+wheel inside the timeline instead of zooming the page.
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const x = Math.max(0, Math.min(pane.clientWidth, e.clientX - pane.getBoundingClientRect().left));
+      const position = (pane.scrollLeft + x) / pane.scrollWidth;
+      setZoom(previous => Math.max(1, Math.min(20, previous * Math.exp(-e.deltaY * .002))));
+      requestAnimationFrame(() => { pane.scrollLeft = position * pane.scrollWidth - x; });
+    };
+    pane.addEventListener('wheel', wheel, {passive: false});
+    return () => pane.removeEventListener('wheel', wheel);
+  }, [page, project?.id]);
   const loadList = () =>
     api<Summary[]>("/projects")
       .then(setList)
@@ -1025,8 +1040,18 @@ function App() {
                   {stamp(time)} / {stamp(project.media.duration)}
                 </span>
               </div>
-              <div className="timeline-legend"><span className="pending">Chưa tạo</span><span className="ready">Đã tạo</span><span className="overlap">Chồng / tràn</span><span>Kéo câu để dời mốc, giữ nguyên độ dài</span></div>
-              <div className="timeline-scroll" ref={timelineScroll}>
+              <div className="timeline-legend"><span className="pending">Chưa tạo</span><span className="ready">Đã tạo</span><span className="overlap">Chồng / tràn</span><span>Ctrl + cuộn: zoom · ← →: ±0,1s · Delete: xóa · Hoàn tác để khôi phục</span></div>
+              <div className="timeline-scroll" ref={timelineScroll} tabIndex={0} aria-label="Timeline: Ctrl cuộn để zoom, mũi tên dời câu, Delete xóa câu"
+                onKeyDown={e=>{
+                  if(e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || dragging.current) return;
+                  if((e.target as HTMLElement).closest('input,textarea,select,[contenteditable="true"]')) return;
+                  const cue=project.cues.find(c=>c.id===selected);
+                  if(!cue || !['ArrowLeft','ArrowRight','Delete'].includes(e.key)) return;
+                  e.preventDefault();e.stopPropagation();video.current?.pause();audio.current?.pause();
+                  if(e.key==='Delete') { mutate({cues:project.cues.filter(c=>c.id!==selected)});setSelected('');timelineScroll.current?.focus();return; }
+                  const start=Math.max(0,Math.round((cue.start+(e.key==='ArrowRight'?.1:-.1))*1000)/1000);
+                  editCue(cue.id,{start,end:Math.round((start+cue.end-cue.start)*1000)/1000});
+                }}>
                 <div
                   className="timeline-track"
                   style={{ width: `${zoom * 100}%` }}
@@ -1059,6 +1084,7 @@ function App() {
                       title={c.text}
                       onPointerDown={e=>{
                         if(e.button!==0)return;
+                        e.currentTarget.focus();
                         const width=e.currentTarget.parentElement!.getBoundingClientRect().width;
                         dragging.current={id:c.id,x:e.clientX,start:c.start,end:c.end,scale:project.media.duration/width,moved:false,delta:0};
                         suppressClick.current=false;

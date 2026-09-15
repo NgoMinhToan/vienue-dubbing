@@ -3,6 +3,9 @@
 ## Unreleased — 2026-09-14–15
 
 ### WebUI và media
+- Timeline: Ctrl+wheel zoom, mũi tên dời 0,1 giây, Delete xóa khi focus timeline; dùng Hoàn tác để khôi phục.
+- Studio hai cột và thẻ giọng gọn hơn; README viết mới kèm ảnh chụp và Compose CPU.
+- Repository/GHCR public, latest theo main; làm sạch ancestry upstream, giữ lịch sử phát triển riêng.
 - Triển khai Phòng thu: mẫu 3–8 giây, upload/micro, clone CPU, nghe thử, lưu giọng custom và dùng trong lồng tiếng.
 - Lưu giọng dưới data volume; dừng/thử lại/restart, chặn xóa giọng đang được dự án/hàng đợi tham chiếu.
 - Từ điển áp dụng toàn cục cho mọi dự án và mẫu giọng; cập nhật cache theo lời đọc.

@@ -1,0 +1,6 @@
+services:
+  dubbing:
+    volumes:
+      - type: bind
+        source: ${DATA_DIR:?Set DATA_DIR to an existing writable directory}
+        target: /data

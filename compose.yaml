@@ -1,0 +1,24 @@
+services:
+  dubbing:
+    image: ghcr.io/ngominhtoan/vienue-dubbing:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-7861}:7861"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 7861
+      APP_DATA_DIR: /data
+      APP_TEMP_DIR: /data/tmp
+      HF_HOME: /data/models
+      APP_MEDIA_ROOT: /media
+      APP_MAX_VIDEO_BYTES: ${APP_MAX_VIDEO_BYTES:-21474836480}
+      APP_MIN_FREE_BYTES: ${APP_MIN_FREE_BYTES:-536870912}
+      PYTHONUTF8: "1"
+    volumes:
+      - dubbing_data:/data
+      - type: bind
+        source: ${MEDIA_DIR:-.}
+        target: /media
+        read_only: true
+volumes:
+  dubbing_data:

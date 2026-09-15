@@ -49,3 +49,7 @@ python scripts/media_cli.py import "phim/video.mp4" "phim/video.srt" --name "D�
 ```
 
 Tham khảo: [GitHub publish container](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images), [Docker metadata action](https://github.com/docker/metadata-action), [Docker build/push action](https://github.com/docker/build-push-action).
+
+
+## Cập nhật public/latest
+Repository và package GHCR đã public. Workflow main gắn latest sau test/build; dùng README.md và compose.yaml ở root làm hướng dẫn hiện hành. Những ghi chú private/latest chỉ release phía trên là lịch sử trước thay đổi này.

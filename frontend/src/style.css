@@ -1067,3 +1067,21 @@ main {
 .upload-source { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .upload-source input { max-width:250px; }
 .studio-task h3 { margin:0; }
+
+.studio-page { max-width: 1300px; }
+.studio-layout { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr); gap:24px; align-items:start; }
+.studio-layout .studio-form { margin:0; padding:20px; }
+.studio-source { align-items:flex-start; gap:12px; margin-bottom:18px; }
+.studio-fields { gap:12px; }
+.studio-fields label:first-child { flex-basis:100%; }
+.studio-fields label:not(:first-child) { width:auto; flex:1; }
+.studio-form textarea { min-height:76px; }
+.studio-voices > h2 { font-size:17px; margin:0 0 14px; }
+.studio-task { padding:14px 16px; margin:0 0 12px; }
+.studio-task .listener-heading { justify-content:space-between; gap:8px; }
+.studio-task h3 { font-size:14px; overflow-wrap:anywhere; }
+.studio-task p,.studio-task label { font-size:12px; line-height:1.5; }
+.studio-task audio { height:32px; margin:6px 0 12px; }
+.studio-task .library-filters { margin:10px 0 0; gap:8px; }
+.studio-task button { padding:7px 10px; font-size:12px; }
+@media(max-width:1050px) { .studio-layout { grid-template-columns:1fr; } .studio-voices { min-width:0; } }

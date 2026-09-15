@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
     tags: ['v*']
-    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'docker/**', 'scripts/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
+    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'docker/**', 'compose*.yaml', 'scripts/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
   pull_request:
-    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'docker/**', 'scripts/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
+    paths: ['apps/dubbing_web/**', 'frontend/**', 'tests/dubbing/**', 'docker/**', 'compose*.yaml', 'scripts/**', 'requirements-dubbing.lock.txt', '.github/workflows/dubbing.yml']
   release:
     types: [published]
 permissions:
@@ -43,6 +43,7 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v4
+      - run: docker compose -f compose.yaml config --quiet
       - run: docker build -f docker/Dockerfile.dubbing -t dubbing:test .
       - name: Verify non-root container and HTTP startup
         shell: bash
@@ -86,7 +87,7 @@ jobs:
             type=sha,format=long
             type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || (github.event_name == 'release' && !github.event.release.prerelease) }}
       - uses: docker/build-push-action@v7
         id: image
         with:
