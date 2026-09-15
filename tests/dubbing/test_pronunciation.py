@@ -26,8 +26,6 @@ def test_dictionary_snapshot_revision_and_cache(tmp_path):
         saved=client.put('/api/dictionary',json=d).json()
         assert saved['revision']==1
         assert client.put('/api/dictionary',json=d).status_code==409
-        assert client.post('/api/projects/'+id+'/dictionary',json={'revision':1,'dictionary_revision':0}).status_code==409
-        assert client.post('/api/projects/'+id+'/dictionary',json={'revision':1,'dictionary_revision':1}).status_code==200
         after=store.get(id)
         assert after['cues']==before['cues']
         assert speech_text(after['cues'][0],after)=='Vi Nói'
@@ -35,10 +33,12 @@ def test_dictionary_snapshot_revision_and_cache(tmp_path):
         assert voice_key(after['cues'][1],after)==voice_key(before['cues'][1],before)
         saved['rules']=[]
         client.put('/api/dictionary',json=saved)
-        assert store.get(id)['pronunciation']['rules']
-        app.state.jobs.items['busy']={'project':id,'status':'running'}
-        assert client.post('/api/projects/'+id+'/dictionary',json={'revision':2,'dictionary_revision':2}).status_code==400
-        app.state.jobs.items.clear()
+        assert store.get(id)['pronunciation']['rules']==[]
+        assert store.get(id)['revision']==3
+        # Even a restored old project must use the current global dictionary.
+        store.save(before)
+        assert store.get(id)['pronunciation']['rules']==[]
+
 
 
 def test_invalid_import_is_atomic(tmp_path):

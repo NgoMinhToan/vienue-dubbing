@@ -20,7 +20,7 @@ class VoiceEdit(BaseModel):
     sample_text: str = Field(default="Xin chào, đây là giọng đọc mẫu cho bản lồng tiếng của bạn.", min_length=1, max_length=500)
 
 
-def install_library(app, store, jobs, presets):
+def install_library(app, store, jobs, presets, get_dictionary):
     router = APIRouter(prefix="/api/library")
     with store.connection() as db:
         db.execute("CREATE TABLE IF NOT EXISTS voice_metadata (id TEXT PRIMARY KEY, data TEXT NOT NULL)")
@@ -60,8 +60,9 @@ def install_library(app, store, jobs, presets):
     @router.post("/voices/{id}/sample")
     def sample(id: str):
         current = voice(id)
-        text = current["sample_text"]
-        key = hashlib.sha256(json.dumps(["library-v1", id, text], ensure_ascii=False).encode()).hexdigest()
+        from .pronunciation import spoken_text
+        text = spoken_text(current["sample_text"], get_dictionary()["rules"])
+        key = hashlib.sha256(json.dumps(["library-v2", id, text], ensure_ascii=False).encode()).hexdigest()
         path = cache / (key + ".wav")
         with lock:
             if path.exists():

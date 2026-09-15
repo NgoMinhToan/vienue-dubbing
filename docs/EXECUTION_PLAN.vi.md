@@ -54,3 +54,31 @@ Giai đoạn 1 hoàn thành trong phạm vi checklist này. Giới hạn kiểm 
 Ba giai đoạn đã hoàn thành theo phạm vi checklist. Các giới hạn và phạm vi để sau (domain/auth, thêm kiến trúc CPU, kiểm chứng mọi codec) được ghi riêng trong IMPLEMENTATION_STATUS.vi.md.
 
 Thứ tự bắt buộc: Giai đoạn 1 → 2 → 3. Không push source lên repository upstream. Các thao tác publish thật chỉ thực hiện với repository/registry người dùng sở hữu hoặc chỉ định.
+
+
+## Giai đoạn 4 — Phòng thu: clone và giọng tùy chỉnh (bổ sung 15/09/2026)
+
+Mục tiêu: tạo giọng cục bộ từ mẫu thu, lưu vào thư viện và dùng trong lồng tiếng. Phòng thu từng bị loại khỏi bản đầu ở DUBBING_WEBUI_PLAN.vi.md; nay được đưa vào kế hoạch tiếp theo. Chưa triển khai chức năng này.
+
+### 4.1 Kiểm chứng engine — 1–2 ngày
+- [ ] Kiểm chứng API `encode_reference`/`add_voice` của v3 Turbo với ONNX CPU và model đang cài; đo RAM, thời gian và chất lượng từ mẫu thật.
+- [ ] Xác định model bổ sung và dung lượng, nơi cache trong APP_DATA_DIR/HF_HOME; thử chạy offline sau lần tải đầu trên Windows và Linux/Docker.
+- [ ] Chốt giới hạn mẫu dựa trên thử nghiệm; không cam kết clone hoạt động chỉ dựa trên API có sẵn.
+
+### 4.2 Pipeline và lưu giọng — 2–3 ngày
+- [ ] Nhập WAV/MP3 hoặc thu bằng micro trong trình duyệt; nghe, cắt đoạn và kiểm tra im lặng, clipping, thời lượng.
+- [ ] FFmpeg chuẩn hóa mẫu; xử lý clone bằng worker CPU dùng chung, có tiến độ, hủy và lỗi rõ ràng.
+- [ ] Lưu ID custom ổn định, metadata, mẫu nguồn và embedding/version dưới data volume; nạp lại sau restart.
+- [ ] Đăng ký giọng custom vào thư viện, giọng chung và giọng từng câu; cache có phiên bản giọng để không dùng âm thanh cũ.
+- [ ] Khi xóa giọng đang được dự án/queue tham chiếu, bảo vệ dữ liệu cần dùng hoặc yêu cầu chọn giọng thay thế.
+
+### 4.3 Giao diện Phòng thu — 2–3 ngày
+- [ ] Trang riêng: Nhập/thu mẫu → kiểm tra mẫu → tạo giọng → nhập tên/thẻ → nghe thử → lưu vào thư viện.
+- [ ] Văn bản nghe thử áp dụng từ điển toàn cục; hiển thị trạng thái và lỗi, không yêu cầu API trả phí.
+- [ ] Phân biệt rõ giọng cài sẵn và giọng tự tạo; micro dùng trên localhost (khi triển khai domain cần HTTPS).
+
+### 4.4 Nghiệm thu — 1–2 ngày
+- [ ] Test mẫu hỏng/im lặng, hủy tác vụ, restart, cache, queue snapshot và dự án dùng giọng custom.
+- [ ] Thử thật CPU Windows và Docker/Linux với data volume; cập nhật README/CHANGELOG và commit theo tính năng.
+
+Ước tính tổng: 6–10 ngày công, điều chỉnh sau bước kiểm chứng engine. Không bao gồm huấn luyện/fine-tune mô hình mới.

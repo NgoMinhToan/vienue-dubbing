@@ -45,6 +45,11 @@ class Store:
             row = db.execute("SELECT data FROM projects WHERE id=?", (project["id"],)).fetchone()
             if expected is not None and (not row or json.loads(row[0])["revision"] != expected):
                 raise Conflict("Dự án đã thay đổi. Nạp lại trước khi lưu.")
+            # Restoring an old queued version must still use today's global rules for new work.
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='pronunciation'").fetchone():
+                dictionary = db.execute("SELECT data FROM pronunciation WHERE id=1").fetchone()
+                if dictionary:
+                    project["pronunciation"] = json.loads(dictionary[0])
             project["updated"] = datetime.now(timezone.utc).isoformat()
             db.execute("INSERT OR REPLACE INTO projects VALUES (?, ?)", (project["id"], json.dumps(project)))
         return project

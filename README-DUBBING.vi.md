@@ -68,7 +68,7 @@ npm run build
 - Đã bổ sung thay video/SRT trong dự án. SRT mới thay danh sách câu sau xác nhận; file lỗi không thay đổi nguồn hiện có. File video nguồn cũ còn giữ trên đĩa tới khi xóa dự án.
 - Đã bổ sung nghe mẫu giọng chung ngay trong Lồng tiếng.
 - Kiểm thử phim dài, timestamp lệch/phức tạp, dung lượng đĩa thấp, kiểm thử Docker/Linux và tinh chỉnh giao diện theo ảnh.
-- Hai màn hình quản lý giọng và từ điển phát âm để giai đoạn sau theo phạm vi đã chốt.
+- Đã có quản lý giọng và từ điển phát âm; Phòng thu clone giọng được lên kế hoạch ở giai đoạn 4.
 
 Chi tiết yêu cầu, giai đoạn và quy trình MKV: [Kế hoạch](docs/DUBBING_WEBUI_PLAN.vi.md).
 
@@ -98,7 +98,7 @@ Mở **Giọng nói** để tìm/lọc 23 preset, đánh dấu yêu thích hoặ
 
 Mở **Từ điển phát âm**, thêm luật Viết là → Đọc thành, tùy chọn cả từ/hoa thường/bật tắt. Bấm **Xem lời engine đọc** để thử rồi **Lưu từ điển**. Nhập/xuất JSON có version 1; nhập chỉ tạo bản nháp, cần lưu để xác nhận. Luật ở trên ưu tiên khi trùng, không thay thế đệ quy. Lời hiển thị và SRT không bị sửa.
 
-Dự án mới chụp bản từ điển hiện tại. Với dự án cũ, chọn dự án và bấm **Áp dụng bản đã lưu** khi không có tác vụ đang chạy. Việc này tăng revision, yêu cầu xuất lại; WAV của câu không thay đổi cách đọc vẫn được dùng lại. Sửa từ điển chung không tự thay bản luật của dự án cũ.
+Bấm **Lưu từ điển** để áp dụng cho mọi dự án và các lần nghe/tạo giọng tiếp theo. WAV của câu không đổi cách đọc được dùng lại. Các phiên bản đã đưa vào hàng đợi giữ bản luật lúc tạo; phiên bản mới dùng luật hiện hành.
 
 ### Thanh tác vụ lồng tiếng
 
@@ -106,3 +106,8 @@ Dự án mới chụp bản từ điển hiện tại. Với dự án cũ, chọ
 - **Tạo giọng tất cả:** xử lý ngay, hiển thị số câu đã tạo/tổng số câu.
 - **Xuất:** mở tùy chọn xuất MP3/MKV và xử lý ngay.
 - Mỗi phiên bản có nút **Xóa khỏi hàng đợi**; tác vụ đang chạy cần dừng trước khi xóa.
+
+
+### Cập nhật phạm vi ngày 15/09/2026
+Từ điển đã lưu áp dụng chung cho tất cả dự án và nghe mẫu giọng. Dự án hiện có tự cập nhật, chỉ các câu đổi lời đọc cần tạo lại; file âm thanh đã xuất không bị sửa. Phiên bản hàng đợi đã tạo giữ snapshot cũ, phiên bản tạo mới dùng luật hiện hành. Không còn bước áp dụng riêng cho dự án.
+Phòng thu để clone và lưu giọng custom được bổ sung vào giai đoạn 4 của `docs/EXECUTION_PLAN.vi.md`, chưa triển khai.

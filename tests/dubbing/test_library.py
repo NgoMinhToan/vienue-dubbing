@@ -42,4 +42,13 @@ def test_sample_uses_saved_text_and_cache(tmp_path):
         assert client.get('/api/library/samples/'+sample['id']+'/audio').status_code==200
         assert client.post(url+'/sample').json()['id']==sample['id']
         assert len(calls)==1
+        dictionary=client.get('/api/dictionary').json()
+        dictionary['rules']=[{'source':'Câu riêng','target':'Cách đọc mới'}]
+        assert client.put('/api/dictionary',json=dictionary).status_code==200
+        changed=client.post(url+'/sample').json()
+        assert changed['id']!=sample['id']
+        for _ in range(100):
+            if client.get('/api/library/samples/'+changed['id']).json()['status']=='complete': break
+            time.sleep(.01)
+        assert calls[-1]==('Cách đọc mới.',voice['id'])
         assert client.get('/api/library/samples/not-a-hash/audio').status_code==404

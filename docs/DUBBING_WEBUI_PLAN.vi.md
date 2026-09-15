@@ -388,3 +388,8 @@ Nguồn kỹ thuật: [mkvmerge manual](https://mkvtoolnix.download/doc/mkvmerge
 - Ngay bản đầu có CI/smoke test Linux cho upload, parse, job giả lập, remux và đường dẫn; có kiểm tra inference CPU thật riêng khi có model. Dockerfile/Compose production và vận hành image được làm sau, không tính là đã bàn giao ở bản Windows.
 
 **Tiêu chí sẵn sàng cho giai đoạn Docker:** cùng CLI chạy headless trên Linux, mọi dữ liệu nằm ở thư mục cấu hình, không có tác vụ nghiệp vụ bắt buộc gọi shell Windows, các test MKV hai track qua được trên hai OS. Phần chuẩn bị này thêm 1–2 ngày vào phase 6; không cần thay kiến trúc khi bắt đầu đóng gói container.
+
+
+### Cập nhật phạm vi ngày 15/09/2026
+Từ điển đã lưu áp dụng chung cho tất cả dự án và nghe mẫu giọng. Dự án hiện có tự cập nhật, chỉ các câu đổi lời đọc cần tạo lại; file âm thanh đã xuất không bị sửa. Phiên bản hàng đợi đã tạo giữ snapshot cũ, phiên bản tạo mới dùng luật hiện hành. Không còn bước áp dụng riêng cho dự án.
+Phòng thu để clone và lưu giọng custom được bổ sung vào giai đoạn 4 của `docs/EXECUTION_PLAN.vi.md`, chưa triển khai.

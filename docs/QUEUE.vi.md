@@ -17,3 +17,8 @@ Lưu trữ nằm trong `APP_DATA_DIR`: SQLite giữ bộ đếm phiên bản; `r
 API: POST `/api/projects/{id}/versions` với `revision`, `kind`, `mode` (`now`/`wait`), `overflow_policy` (`keep`/`skip`). GET `/api/queue`; POST `/api/queue/start`, `/api/queue/{id}/start`, `/api/queue/{id}/edit` (revision hiện tại của dự án).
 
 Xóa một phiên bản: DELETE `/api/queue/{id}`. Trả 409 khi worker đang xử lý/dọn tài nguyên; 404 khi phiên bản không tồn tại.
+
+
+### Cập nhật phạm vi ngày 15/09/2026
+Từ điển đã lưu áp dụng chung cho tất cả dự án và nghe mẫu giọng. Dự án hiện có tự cập nhật, chỉ các câu đổi lời đọc cần tạo lại; file âm thanh đã xuất không bị sửa. Phiên bản hàng đợi đã tạo giữ snapshot cũ, phiên bản tạo mới dùng luật hiện hành. Không còn bước áp dụng riêng cho dự án.
+Phòng thu để clone và lưu giọng custom được bổ sung vào giai đoạn 4 của `docs/EXECUTION_PLAN.vi.md`, chưa triển khai.

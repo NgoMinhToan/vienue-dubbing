@@ -3,6 +3,9 @@
 ## Unreleased — 2026-09-14–15
 
 ### WebUI và media
+- Từ điển áp dụng toàn cục cho mọi dự án và mẫu giọng; cập nhật cache theo lời đọc.
+- Sắp lại thẻ luật phát âm, nút xóa bằng icon, bảng nghe giọng có tên/câu mẫu và player riêng.
+- Bổ sung kế hoạch Phòng thu clone giọng custom (chưa triển khai).
 - Tách nút Thêm vào hàng đợi và Xuất; căn lại thanh tác vụ, giữ Tạo giọng tất cả chạy ngay.
 - Xóa riêng phiên bản hàng đợi với xác nhận; bảo vệ worker đang chạy, dự án và cache dùng chung.
 - Hàng đợi phiên bản bền vững, chọn xử lý ngay/chờ, số thứ tự theo dự án, chỉnh sửa snapshot, hủy/thử lại/restart và xóa dự án sau khi worker dừng an toàn.

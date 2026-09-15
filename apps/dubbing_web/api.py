@@ -56,8 +56,8 @@ def create_app(settings=None):
 
     app = FastAPI(title="VieNeu Dubbing", lifespan=lifespan)
     app.state.store, app.state.jobs = store, jobs
-    install_library(app, store, jobs, presets["presets"])
     get_dictionary = install_dictionary(app, store, jobs)
+    install_library(app, store, jobs, presets["presets"], get_dictionary)
     queue = install_queue(app, store, jobs)
 
     @app.middleware("http")

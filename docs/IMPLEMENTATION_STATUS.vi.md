@@ -33,3 +33,8 @@ Checklist chính: [EXECUTION_PLAN.vi.md](EXECUTION_PLAN.vi.md).
 - Tiến độ tải model đang ở mức trạng thái, chưa có phần trăm mỗi file. Offline sau khi tải model đã được thử trước đây trên Windows và Linux.
 - Docker Desktop local chưa chạy; nghiệm thu container hiện dùng GitHub Linux runner. Chỉ hỗ trợ linux/amd64, một instance trên mỗi data volume.
 - Domain/HTTPS/auth/nhiều người dùng không nằm trong đợt này.
+
+
+### Cập nhật phạm vi ngày 15/09/2026
+Từ điển đã lưu áp dụng chung cho tất cả dự án và nghe mẫu giọng. Dự án hiện có tự cập nhật, chỉ các câu đổi lời đọc cần tạo lại; file âm thanh đã xuất không bị sửa. Phiên bản hàng đợi đã tạo giữ snapshot cũ, phiên bản tạo mới dùng luật hiện hành. Không còn bước áp dụng riêng cho dự án.
+Phòng thu để clone và lưu giọng custom được bổ sung vào giai đoạn 4 của `docs/EXECUTION_PLAN.vi.md`, chưa triển khai.

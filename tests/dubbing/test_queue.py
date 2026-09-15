@@ -169,3 +169,21 @@ def test_remove_refuses_running_and_cleanup_then_removes_output(tmp_path):
         assert client.delete('/api/queue/'+item['id']).status_code==200
         assert not folder.exists()
         assert client.get('/api/queue').json()==[]
+
+
+def test_global_dictionary_updates_projects_but_keeps_queued_snapshot(tmp_path):
+    app,p,root,calls=fixture(tmp_path)
+    with TestClient(app) as client:
+        old=add(client,p)
+        dictionary=client.get('/api/dictionary').json()
+        dictionary['rules']=[{'source':'Original','target':'New reading'}]
+        assert client.put('/api/dictionary',json=dictionary).status_code==200
+        current=app.state.store.get(p['id'])
+        assert current['revision']==p['revision']+1
+        assert current['pronunciation']['rules'][0]['target']=='New reading'
+        assert client.post('/api/queue/'+old['id']+'/start').status_code==200
+        app.state.jobs.pool.run()
+        assert calls==['Original']
+        add(client,current,mode='now')
+        app.state.jobs.pool.run()
+        assert calls==['Original','New reading']

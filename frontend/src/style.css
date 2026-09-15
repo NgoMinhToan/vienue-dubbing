@@ -1025,3 +1025,35 @@ main {
   .delivery-actions { flex-wrap: wrap; justify-content: flex-end; }
   .delivery-actions .export-menu { position: fixed; top: 155px; right: 16px; }
 }
+
+.dictionary-rules { margin: 24px 0 32px; }
+.pronunciation-rule { display: grid; grid-template-columns: 26px minmax(0,1fr) 18px minmax(0,1fr) 38px; gap: 14px; align-items: center; padding: 20px; }
+.pronunciation-rule .rule-field { display: flex; flex-direction: column; align-items: stretch; gap: 8px; font-size: 12px; color: #a7a9bc; }
+.pronunciation-rule .rule-field input { width: 100%; min-width: 0; font-size: 14px; }
+.rule-number { color: #85859d; font: 12px monospace; }
+.rule-arrow { color: #9f7bea; margin-top: 24px; }
+.rule-options { grid-column: 2 / 5; display: flex; flex-wrap: wrap; gap: 18px; font-size: 12px; color: #b5b6c8; }
+.pronunciation-rule .delete-rule { grid-column: 5; grid-row: 1 / 3; padding: 9px; color: #c7a4ac; background: transparent; }
+.delete-rule:hover { color: #ff899d; border-color: #ad4c60; }
+.rule-disabled { opacity: .65; }
+.empty-rules { padding: 28px; text-align: center; border: 1px dashed #39394b; border-radius: 12px; }
+.voice-listener { padding: 22px; margin: 20px 0; border: 1px solid #51406f; border-radius: 16px; background: linear-gradient(120deg,#211b32,#151620); }
+.listener-heading { display: flex; align-items: center; gap: 14px; }
+.listener-heading h2 { margin: 5px 0 0; font-size: 19px; }
+.listener-heading small { color: #b59ccc; font-size: 10px; letter-spacing: 1.3px; }
+.listener-icon { display: grid; place-items: center; background: #382958; color: #c4a5ff; width: 46px; height: 46px; border-radius: 12px; }
+.sample-quote { color: #c8c8d6; line-height: 1.6; }
+.voice-listener audio { display: block; width: 100%; height: 42px; color-scheme: dark; }
+.voice-library-card.listening { border-color: #9766e8; background: #201b2d; }
+.voice-play { border-radius: 50%; width: 40px; height: 40px; padding: 10px; flex-shrink: 0; color: #bb92fc; }
+.loading-icon { margin-left: auto; animation: listener-spin 1s linear infinite; }
+@keyframes listener-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .loading-icon { animation: none; } }
+@media (max-width: 640px) {
+  .pronunciation-rule { grid-template-columns: 20px minmax(0,1fr) 36px; gap: 12px; padding: 14px; }
+  .pronunciation-rule .rule-field { grid-column: 2; }
+  .rule-arrow { display: none; }
+  .rule-options { grid-column: 2; gap: 12px; }
+  .pronunciation-rule .delete-rule { grid-column: 3; }
+  .voice-library-card { flex-wrap: wrap; }
+}
