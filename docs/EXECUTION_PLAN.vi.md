@@ -58,7 +58,7 @@ Thứ tự bắt buộc: Giai đoạn 1 → 2 → 3. Không push source lên rep
 
 ## Giai đoạn 4 — Phòng thu: clone và giọng tùy chỉnh (bổ sung 15/09/2026)
 
-Mục tiêu: tạo giọng cục bộ từ mẫu thu, lưu vào thư viện và dùng trong lồng tiếng. Phòng thu từng bị loại khỏi bản đầu ở DUBBING_WEBUI_PLAN.vi.md; nay được đưa vào kế hoạch tiếp theo. Chưa triển khai chức năng này.
+Mục tiêu: tạo giọng cục bộ từ mẫu thu, lưu vào thư viện và dùng trong lồng tiếng. Phòng thu từng bị loại khỏi bản đầu ở DUBBING_WEBUI_PLAN.vi.md; nay được đưa vào kế hoạch tiếp theo. Chức năng đã triển khai; xem checklist tiến độ và các kiểm chứng còn mở ở cuối tài liệu.
 
 ### 4.1 Kiểm chứng engine — 1–2 ngày
 - [ ] Kiểm chứng API `encode_reference`/`add_voice` của v3 Turbo với ONNX CPU và model đang cài; đo RAM, thời gian và chất lượng từ mẫu thật.
@@ -82,3 +82,16 @@ Mục tiêu: tạo giọng cục bộ từ mẫu thu, lưu vào thư viện và 
 - [ ] Thử thật CPU Windows và Docker/Linux với data volume; cập nhật README/CHANGELOG và commit theo tính năng.
 
 Ước tính tổng: 6–10 ngày công, điều chỉnh sau bước kiểm chứng engine. Không bao gồm huấn luyện/fine-tune mô hình mới.
+
+
+### Tiến độ triển khai Phòng thu
+- [x] Kiểm chứng encode_reference và infer với embedding/codes trên CPU thật; khôi phục offline từ NPZ.
+- [x] API nhập mẫu giới hạn dung lượng, chuẩn hóa FFmpeg, kiểm tra 3–8 giây/im lặng/clipping.
+- [x] Worker tuần tự, dừng/thử lại/restart; nghe rồi lưu giọng, ID bất biến và thư viện metadata.
+- [x] UI Phòng thu với upload, thu micro, mốc cắt, nghe nguồn/preview, lưu/xóa; nối chọn giọng chung và từng câu.
+- [x] Bảo vệ xóa giọng được dự án/queue tham chiếu; kiểm thử tự động lưu/restart/hủy/thử lại/mẫu lỗi.
+- [x] Kiểm tra UI và clone CPU thật trên Windows; nghe giọng custom qua thư viện.
+- [ ] Đo RAM peak và đánh giá chất lượng với mẫu người thật; kiểm thử micro vật lý.
+- [ ] Kiểm chứng inference clone thật trên Docker/Linux. CI kiểm thử lifecycle với model giả không thay cho bước này.
+
+Chi tiết vận hành và bằng chứng: [STUDIO.vi.md](STUDIO.vi.md). Chức năng đã triển khai; nghiệm thu mở rộng còn các mục chưa đánh dấu ở trên.

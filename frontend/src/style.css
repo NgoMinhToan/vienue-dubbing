@@ -1057,3 +1057,13 @@ main {
   .pronunciation-rule .delete-rule { grid-column: 3; }
   .voice-library-card { flex-wrap: wrap; }
 }
+
+.studio-form,.studio-task { padding:24px; margin:20px 0; border:1px solid #353343; border-radius:14px; background:#171720; }
+.studio-source,.studio-fields { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+.studio-fields label:first-child { flex:1; min-width:180px; }
+.studio-fields input { display:block; margin:8px 0 18px; width:100%; }
+.studio-fields label:not(:first-child) { width:130px; }
+.studio-task audio { display:block; width:100%; margin:10px 0 20px; color-scheme:dark; }
+.upload-source { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.upload-source input { max-width:250px; }
+.studio-task h3 { margin:0; }

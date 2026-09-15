@@ -3,6 +3,8 @@
 ## Unreleased — 2026-09-14–15
 
 ### WebUI và media
+- Triển khai Phòng thu: mẫu 3–8 giây, upload/micro, clone CPU, nghe thử, lưu giọng custom và dùng trong lồng tiếng.
+- Lưu giọng dưới data volume; dừng/thử lại/restart, chặn xóa giọng đang được dự án/hàng đợi tham chiếu.
 - Từ điển áp dụng toàn cục cho mọi dự án và mẫu giọng; cập nhật cache theo lời đọc.
 - Sắp lại thẻ luật phát âm, nút xóa bằng icon, bảng nghe giọng có tên/câu mẫu và player riêng.
 - Bổ sung kế hoạch Phòng thu clone giọng custom (chưa triển khai).

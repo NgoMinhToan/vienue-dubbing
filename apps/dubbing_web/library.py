@@ -25,6 +25,7 @@ def install_library(app, store, jobs, presets, get_dictionary):
     with store.connection() as db:
         db.execute("CREATE TABLE IF NOT EXISTS voice_metadata (id TEXT PRIMARY KEY, data TEXT NOT NULL)")
     samples = {}
+    app.state.library_samples = samples
     lock = threading.RLock()
     cache = store.root / "samples"
     cache.mkdir(exist_ok=True)
@@ -41,7 +42,8 @@ def install_library(app, store, jobs, presets, get_dictionary):
 
     @router.get("/voices")
     def voices():
-        return [voice(id) for id in presets]
+        with jobs.lock:
+            return [voice(id) for id in presets]
 
     @router.put("/voices/{id}")
     def edit(id: str, values: VoiceEdit):
@@ -59,37 +61,38 @@ def install_library(app, store, jobs, presets, get_dictionary):
 
     @router.post("/voices/{id}/sample")
     def sample(id: str):
-        current = voice(id)
-        from .pronunciation import spoken_text
-        text = spoken_text(current["sample_text"], get_dictionary()["rules"])
-        key = hashlib.sha256(json.dumps(["library-v2", id, text], ensure_ascii=False).encode()).hexdigest()
-        path = cache / (key + ".wav")
-        with lock:
-            if path.exists():
-                return {"id": key, "status": "complete"}
-            if key in samples and samples[key]["status"] in ("queued", "running"):
-                return dict(samples[key])
-            if any(s["status"] in ("queued", "running") for s in samples.values()):
-                raise ValueError("Đang tạo một mẫu giọng. Hãy đợi hoàn tất.")
-            state = {"id": key, "status": "queued"}
-            samples[key] = state
-            def work():
-                temporary = path.with_suffix(".tmp.wav")
-                try:
-                    import soundfile as sf
-                    state["status"] = "running"
-                    wav = jobs.load_model().infer(text, voice=id)
-                    if not len(wav):
-                        raise ValueError("Model trả về âm thanh rỗng.")
-                    sf.write(temporary, wav, 48000)
-                    temporary.replace(path)
-                    state["status"] = "complete"
-                except Exception as exc:
-                    state.update(status="failed", message=str(exc))
-                finally:
-                    temporary.unlink(missing_ok=True)
-            jobs.pool.submit(work)
-            return dict(state)
+        with jobs.lock:
+            current = voice(id)
+            from .pronunciation import spoken_text
+            text = spoken_text(current["sample_text"], get_dictionary()["rules"])
+            key = hashlib.sha256(json.dumps(["library-v2", id, text], ensure_ascii=False).encode()).hexdigest()
+            path = cache / (key + ".wav")
+            with lock:
+                if path.exists():
+                    return {"id": key, "status": "complete"}
+                if key in samples and samples[key]["status"] in ("queued", "running"):
+                    return dict(samples[key])
+                if any(s["status"] in ("queued", "running") for s in samples.values()):
+                    raise ValueError("Đang tạo một mẫu giọng. Hãy đợi hoàn tất.")
+                state = {"id": key, "status": "queued"}
+                samples[key] = state
+                def work():
+                    temporary = path.with_suffix(".tmp.wav")
+                    try:
+                        import soundfile as sf
+                        state["status"] = "running"
+                        wav = jobs.load_model().infer(text, voice=jobs.resolve_voice(id))
+                        if not len(wav):
+                            raise ValueError("Model trả về âm thanh rỗng.")
+                        sf.write(temporary, wav, 48000)
+                        temporary.replace(path)
+                        state["status"] = "complete"
+                    except Exception as exc:
+                        state.update(status="failed", message=str(exc))
+                    finally:
+                        temporary.unlink(missing_ok=True)
+                jobs.pool.submit(work)
+                return dict(state)
 
     @router.get("/samples/{key}")
     def sample_status(key: str):

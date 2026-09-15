@@ -37,4 +37,4 @@ Checklist chính: [EXECUTION_PLAN.vi.md](EXECUTION_PLAN.vi.md).
 
 ### Cập nhật phạm vi ngày 15/09/2026
 Từ điển đã lưu áp dụng chung cho tất cả dự án và nghe mẫu giọng. Dự án hiện có tự cập nhật, chỉ các câu đổi lời đọc cần tạo lại; file âm thanh đã xuất không bị sửa. Phiên bản hàng đợi đã tạo giữ snapshot cũ, phiên bản tạo mới dùng luật hiện hành. Không còn bước áp dụng riêng cho dự án.
-Phòng thu để clone và lưu giọng custom được bổ sung vào giai đoạn 4 của `docs/EXECUTION_PLAN.vi.md`, chưa triển khai.
+Phòng thu đã hỗ trợ clone CPU, lưu giọng custom và dùng trong lồng tiếng. Xem `docs/STUDIO.vi.md` để biết cách dùng và các kiểm chứng còn mở.

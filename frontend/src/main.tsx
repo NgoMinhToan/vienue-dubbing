@@ -25,6 +25,7 @@ import VoiceLibrary from "./VoiceLibrary";
 import Pronunciation from "./Pronunciation";
 import MediaBrowser from "./MediaBrowser";
 import QueuePanel from "./QueuePanel";
+import Studio from "./Studio";
 
 type Cue = {
   id: string;
@@ -428,6 +429,7 @@ function App() {
           <Settings size={17} />
           Cài đặt
         </button>
+        <button className={page === "studio" ? "nav selected" : "nav"} onClick={async()=>{try{await save();setPage("studio");}catch(e){setError(String(e));}}}><AudioLines size={17}/>Phòng thu</button>
         <button className={page === "voices" ? "nav selected" : "nav"} onClick={async()=>{try{await save();setPage("voices");}catch(e){setError(String(e));}}}><AudioLines size={17}/>Giọng nói</button>
         <button className={page === "dictionary" ? "nav selected" : "nav"} onClick={async()=>{try{await save();setPage("dictionary");}catch(e){setError(String(e));}}}>Từ điển phát âm</button>
         <div className="side-bottom">
@@ -444,6 +446,7 @@ function App() {
         </div>
       </aside>
       <main>
+        {page === "studio" && <Studio/>}
         {page === "voices" && <VoiceLibrary/>}
         <div hidden={page !== "dictionary"}><Pronunciation active={page === "dictionary"}/></div>
         {error && (

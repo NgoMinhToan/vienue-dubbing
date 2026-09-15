@@ -18,6 +18,7 @@ class Jobs:
         self.items = {}
         self.lock = threading.RLock()
         self.tts = None
+        self.resolve_voice = lambda voice: voice
         self.model_status = "Chưa tải"
         for path in sorted(store.root.glob("projects/*/renders/*/job.json"), key=lambda p: p.stat().st_mtime):
             try:
@@ -115,7 +116,7 @@ class Jobs:
                 cache.mkdir(exist_ok=True)
                 cached = cache / (voice_key({"text": sample_text}, project) + ".wav")
                 if not cached.exists():
-                    wav = self.load_model().infer(speech_text({"text": sample_text}, project), voice=project["voice"])
+                    wav = self.load_model().infer(speech_text({"text": sample_text}, project), voice=self.resolve_voice(project["voice"]))
                     temporary = dest / "sample-temp.wav"
                     sf.write(temporary, wav, 48000)
                     temporary.replace(cached)
@@ -156,7 +157,7 @@ class Jobs:
                 path = root / "clips" / (voice_key(cue, project) + ".wav")
                 if not path.exists() or (cue_id and job["kind"] == "generate"):
                     job["message"] = "Tạo giọng: " + cue["text"][:90]
-                    wav = self.load_model().infer(speech_text(cue, project), voice=cue.get("voice") or project["voice"])
+                    wav = self.load_model().infer(speech_text(cue, project), voice=self.resolve_voice(cue.get("voice") or project["voice"]))
                     if not len(wav):
                         raise ValueError("Model trả về âm thanh rỗng.")
                     temporary = dest / "generated.wav"

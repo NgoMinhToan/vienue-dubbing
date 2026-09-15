@@ -21,6 +21,7 @@ from .library import install_library
 from .pronunciation import install_dictionary
 from .media_browser import install_media_browser
 from .queueing import install_queue
+from .studio import install_studio
 
 
 class JobRequest(BaseModel):
@@ -35,7 +36,7 @@ def create_app(settings=None):
     store = Store(settings.data)
     jobs = Jobs(store)
     presets = json.loads((ROOT / "src/vieneu/assets/voices_v3_turbo.json").read_text(encoding="utf-8"))
-    voices = list(presets["presets"])
+    voices = presets["presets"]
 
     def copy_upload(source, target):
         limit = int(os.environ.get("APP_MAX_VIDEO_BYTES", 20 * 1024**3))
@@ -52,12 +53,15 @@ def create_app(settings=None):
     @asynccontextmanager
     async def lifespan(app):
         yield
+        for state in app.state.studio_states.values():
+            state["cancel"].set()
         jobs.shutdown()
 
     app = FastAPI(title="VieNeu Dubbing", lifespan=lifespan)
     app.state.store, app.state.jobs = store, jobs
     get_dictionary = install_dictionary(app, store, jobs)
     install_library(app, store, jobs, presets["presets"], get_dictionary)
+    install_studio(app, store, jobs, presets["presets"], get_dictionary)
     queue = install_queue(app, store, jobs)
 
     @app.middleware("http")
@@ -116,7 +120,7 @@ def create_app(settings=None):
 
     @app.get("/api/voices")
     def get_voices():
-        return [{"id": v, "description": presets["presets"][v].get("description", "")} for v in voices]
+        return [{"id": v, "description": value.get("description", "")} for v, value in list(voices.items())]
 
     @app.get("/api/projects")
     def projects():
@@ -141,7 +145,7 @@ def create_app(settings=None):
                 copy_upload(video.file, target)
             info = inspect_video(path)
             selected = next((a for a in info["audio_tracks"] if a["default"]), next(iter(info["audio_tracks"]), None))
-            project = {"id": id, "revision": 1, "name": name, "voice": "Kim Thanh" if "Kim Thanh" in voices else voices[0],
+            project = {"id": id, "revision": 1, "name": name, "voice": "Kim Thanh" if "Kim Thanh" in voices else next(iter(voices)),
                        "speed": 1, "auto_fit": True, "fit_limit": 1.6, "background": "duck",
                        "audio_index": selected["index"] if selected else None,
                        "video_name": Path(video.filename).name, "video_file": path.name, "media": info, "cues": cues,
@@ -162,20 +166,21 @@ def create_app(settings=None):
 
     @app.put("/api/projects/{id}")
     def edit(id: str, values: Edit):
-        p = store.get(id)
-        if values.voice not in voices or any(c.voice and c.voice not in voices for c in values.cues):
-            raise ValueError("Giọng không hợp lệ.")
-        if values.audio_index not in [a["index"] for a in p["media"]["audio_tracks"]] + ([None] if not p["media"]["audio_tracks"] else []):
-            raise ValueError("Track âm gốc không hợp lệ.")
-        if len({c.id for c in values.cues}) != len(values.cues):
-            raise ValueError("ID câu bị trùng.")
-        original = {c["id"]: c.get("original_text", c["text"]) for c in p["cues"]}
-        edits = values.model_dump()
-        for cue in edits["cues"]:
-            cue["original_text"] = original.get(cue["id"], cue["text"])
-        p.update(edits)
-        p["revision"] += 1
-        return describe(store.save(p, expected=values.revision))
+        with jobs.lock, store.lock:
+            p = store.get(id)
+            if values.voice not in voices or any(c.voice and c.voice not in voices for c in values.cues):
+                raise ValueError("Giọng không hợp lệ.")
+            if values.audio_index not in [a["index"] for a in p["media"]["audio_tracks"]] + ([None] if not p["media"]["audio_tracks"] else []):
+                raise ValueError("Track âm gốc không hợp lệ.")
+            if len({c.id for c in values.cues}) != len(values.cues):
+                raise ValueError("ID câu bị trùng.")
+            original = {c["id"]: c.get("original_text", c["text"]) for c in p["cues"]}
+            edits = values.model_dump()
+            for cue in edits["cues"]:
+                cue["original_text"] = original.get(cue["id"], cue["text"])
+            p.update(edits)
+            p["revision"] += 1
+            return describe(store.save(p, expected=values.revision))
 
     @app.post("/api/projects/{id}/source")
     def replace_source(id: str, revision: int = Form(...), video: UploadFile | None = File(None), srt: UploadFile | None = File(None)):
