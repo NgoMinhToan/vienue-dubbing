@@ -147,17 +147,12 @@ docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7
 
 ### Cổng, cache model, thư mục tạm và giới hạn upload riêng
 
-```bash
-docker run -d --name vienue-custom -p 127.0.0.1:8080:8080 -v vienue_data:/data -v vienue_models:/models -v vienue_tmp:/worktmp -e APP_HOST=0.0.0.0 -e APP_PORT=8080 -e HF_HOME=/models -e APP_TEMP_DIR=/worktmp -e APP_MAX_VIDEO_BYTES=10737418240 -e APP_MIN_FREE_BYTES=1073741824 ghcr.io/ngominhtoan/vienue-dubbing:latest
-```
-
-Các volume tách riêng phải ghi được bởi UID 1000. Với named volume mới cho `/models` và `/worktmp`, chuẩn bị quyền trước:
+Các volume tách riêng phải ghi được bởi UID 1000. Chuẩn bị quyền trước khi khởi động:
 
 ```bash
 docker run --rm --user 0 -v vienue_models:/models -v vienue_tmp:/worktmp --entrypoint chown ghcr.io/ngominhtoan/vienue-dubbing:latest -R 1000:1000 /models /worktmp
+docker run -d --name vienue-custom -p 127.0.0.1:8080:8080 -v vienue_data:/data -v vienue_models:/models -v vienue_tmp:/worktmp -e APP_HOST=0.0.0.0 -e APP_PORT=8080 -e HF_HOME=/models -e APP_TEMP_DIR=/worktmp -e APP_MAX_VIDEO_BYTES=10737418240 -e APP_MIN_FREE_BYTES=1073741824 ghcr.io/ngominhtoan/vienue-dubbing:latest
 ```
-
-Chạy lệnh chuẩn bị quyền trước lệnh khởi động nếu volume chưa có quyền ghi.
 
 ### Build image từ mã nguồn
 

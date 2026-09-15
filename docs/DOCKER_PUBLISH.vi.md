@@ -11,22 +11,20 @@ Workflow `.github/workflows/dubbing.yml` kiểm thử Windows/Linux, build conta
 | Trigger | Kết quả |
 |---|---|
 | PR | Kiểm thử/build, không đăng nhập registry, không push |
-| Push main thay code hoặc workflow | Push tag `edge` và `sha-<full commit>` |
+| Push main thay code hoặc workflow | Push tag `latest`, `edge` và `sha-<full commit>` |
 | Push tag v1.2.3 | Push `1.2.3` và SHA |
 | Release published ổn định | Push phiên bản và `latest` |
 | Prerelease | Có tag phiên bản, không đổi `latest` |
-| workflow_dispatch trên main | Kiểm thử và publish edge/SHA |
+| workflow_dispatch trên main | Kiểm thử và publish latest/edge/SHA |
 
-Registry: `ghcr.io/ngominhtoan/vienue-dubbing`, nền tảng `linux/amd64`. Workflow dùng `GITHUB_TOKEN` với `packages:write`, không cần lưu PAT trong source. Repo riêng tư; package mới mặc định riêng tư, tài khoản pull phải được cấp quyền đọc package. Khi fork, sửa tên image và điều kiện repository ở job publish theo repo của bạn.
-
-Để pull package riêng tư trên máy khác, chạy `docker login ghcr.io -u NgoMinhToan` và nhập PAT **classic** có quyền `read:packages` ở lời nhắc mật khẩu. Tài khoản phải có quyền đọc package. Đăng nhập `gh` không tự đăng nhập Docker. [Hướng dẫn xác thực GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic).
+Registry: `ghcr.io/ngominhtoan/vienue-dubbing`, nền tảng `linux/amd64`. Workflow dùng `GITHUB_TOKEN` với `packages:write`, không cần lưu PAT trong source. Repo và package đã public; người dùng có thể pull không cần đăng nhập. Khi fork, sửa tên image và điều kiện repository ở job publish theo repo của bạn.
 
 ```sh
 docker pull ghcr.io/ngominhtoan/vienue-dubbing:edge
 docker run --rm -p 127.0.0.1:7861:7861 -v dubbing-data:/data ghcr.io/ngominhtoan/vienue-dubbing:edge
 ```
 
-Dùng tag SHA hoặc digest để cố định bản triển khai. `edge` theo main; không đại diện bản ổn định. Model tải lần đầu và được giữ trong volume dữ liệu. Khi chưa có release ổn định, `latest` chưa tồn tại.
+Dùng tag SHA hoặc digest để cố định bản triển khai. `edge` theo main; không đại diện bản ổn định. Model tải lần đầu và được giữ trong volume dữ liệu. `latest` và `edge` cùng theo build main mới nhất đã vượt kiểm thử.
 
 ## Chọn nguồn từ thư mục host
 
@@ -52,4 +50,4 @@ Tham khảo: [GitHub publish container](https://docs.github.com/en/actions/tutor
 
 
 ## Cập nhật public/latest
-Repository và package GHCR đã public. Workflow main gắn latest sau test/build; dùng README.md và compose.yaml ở root làm hướng dẫn hiện hành. Những ghi chú private/latest chỉ release phía trên là lịch sử trước thay đổi này.
+Repository và package GHCR đã public. Workflow main gắn latest sau test/build; dùng README.md và compose.yaml ở root làm hướng dẫn hiện hành. Không cần PAT để pull package public.
