@@ -99,3 +99,10 @@ Mở **Giọng nói** để tìm/lọc 23 preset, đánh dấu yêu thích hoặ
 Mở **Từ điển phát âm**, thêm luật Viết là → Đọc thành, tùy chọn cả từ/hoa thường/bật tắt. Bấm **Xem lời engine đọc** để thử rồi **Lưu từ điển**. Nhập/xuất JSON có version 1; nhập chỉ tạo bản nháp, cần lưu để xác nhận. Luật ở trên ưu tiên khi trùng, không thay thế đệ quy. Lời hiển thị và SRT không bị sửa.
 
 Dự án mới chụp bản từ điển hiện tại. Với dự án cũ, chọn dự án và bấm **Áp dụng bản đã lưu** khi không có tác vụ đang chạy. Việc này tăng revision, yêu cầu xuất lại; WAV của câu không thay đổi cách đọc vẫn được dùng lại. Sửa từ điển chung không tự thay bản luật của dự án cũ.
+
+### Thanh tác vụ lồng tiếng
+
+- **Thêm vào hàng đợi:** mở tùy chọn tạo giọng, MP3 hoặc MKV, lưu phiên bản chờ.
+- **Tạo giọng tất cả:** xử lý ngay, hiển thị số câu đã tạo/tổng số câu.
+- **Xuất:** mở tùy chọn xuất MP3/MKV và xử lý ngay.
+- Mỗi phiên bản có nút **Xóa khỏi hàng đợi**; tác vụ đang chạy cần dừng trước khi xóa.

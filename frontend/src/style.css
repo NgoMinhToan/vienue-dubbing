@@ -450,7 +450,16 @@ main {
   margin-left: auto;
   display: flex;
   gap: 7px;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
 }
+.toolbar-actions > button { flex-shrink: 0; white-space: nowrap; }
+.delivery-actions { display: flex; align-items: stretch; gap: 8px; margin-left: auto; }
+.delivery-actions > button, .delivery-actions > .export-wrap > button { height: 44px; white-space: nowrap; flex-shrink: 0; }
+.delivery-actions svg { flex-shrink: 0; }
+.generate small { display: block; font-size: 11px; margin-top: 2px; }
+.toolbar .title-input { min-width: 80px; flex-shrink: 1; }
 .generate {
   background: #14372a;
   color: #70c499;
@@ -462,11 +471,14 @@ main {
 .export-menu {
   position: absolute;
   right: 0;
-  top: 42px;
+  top: calc(100% + 8px);
   background: #191921;
   border: 1px solid #34303e;
   padding: 15px;
   width: 305px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
   z-index: 40;
   border-radius: 9px;
   box-shadow: 0 15px 40px #0008;
@@ -879,12 +891,15 @@ main {
   .toolbar {
     gap: 4px;
     padding: 10px;
+    height: auto;
+    flex-wrap: wrap;
   }
   .title-input {
     width: 130px;
   }
   .toolbar-actions {
     gap: 4px;
+    flex-basis: 100%;
   }
   .toolbar-actions button {
     font-size: 11px;
@@ -1006,3 +1021,7 @@ main {
 .queue-panel { margin-top:32px; border-top:1px solid #343440; padding-top:16px; }
 .queue-panel .voice-card { flex-wrap:wrap; }
 .queue-home { padding:0 42px 40px; }
+@media (max-width: 480px) {
+  .delivery-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .delivery-actions .export-menu { position: fixed; top: 155px; right: 16px; }
+}

@@ -133,7 +133,6 @@ function TimeField({value,label,onCommit}:{value:number;label:string;onCommit:(v
 }
 
 function App() {
-  const [taskMode,setTaskMode]=useState('now');
   const [sourceMode,setSourceMode]=useState('upload');
   const [localSources,setLocalSources]=useState({video:'',srt:''});
   const [keepOverflow, setKeepOverflow] = useState(true);
@@ -147,7 +146,7 @@ function App() {
     [busy, setBusy] = useState(false),
     [dirty, setDirty] = useState(false),
     [job, setJob] = useState<Job | null>(null),
-    [menu, setMenu] = useState(false),
+    [menu, setMenu] = useState<"queue" | "export" | null>(null),
     [selected, setSelected] = useState(""),
     [time, setTime] = useState(0),
     [zoom, setZoom] = useState(1),
@@ -300,7 +299,7 @@ function App() {
     try { await work; } finally { saving.current = null; }
     return dirtyRef.current ? save() : latest.current;
   }
-  async function run(kind: string, cueId?: string, allow = false, forceNow = false) {
+  async function run(kind: string, cueId?: string, allow = false, queueOnly = false) {
     try {
       setError("");
       setBusy(true);
@@ -310,10 +309,10 @@ function App() {
       setJob(
         await api<Job>(
           `/projects/${p.id}/${!cueId && ['generate','mp3','mkv'].includes(kind) ? 'versions' : 'jobs'}`,
-          json("POST", { kind, revision:p.revision, mode:forceNow?'now':taskMode, cue_id: cueId, allow_overlap: allow, overflow_policy: allow || keepOverflow ? "keep" : "skip" }),
+          json("POST", { kind, revision:p.revision, mode:queueOnly?'wait':'now', cue_id: cueId, allow_overlap: allow, overflow_policy: allow || keepOverflow ? "keep" : "skip" }),
         ),
       );
-      setMenu(false);
+      setMenu(null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -626,22 +625,22 @@ function App() {
                 >
                   {dirty ? "Lưu thay đổi" : "Đã lưu"}
                 </button>
-                <button
-                  className="generate"
-                  disabled={busy || readyCount === totalCount}
-                  onClick={() => run("generate")}
-                >
-                  <AudioLines size={16} />
-                  Tạo giọng tất cả ({readyCount}/{totalCount} đã tạo)
-                </button>
-                <select aria-label="Cách xử lý tác vụ" value={taskMode} onChange={e=>setTaskMode(e.target.value)}><option value="now">Xử lý ngay</option><option value="wait">Thêm vào hàng đợi</option></select>
-                <div className="export-wrap">
-                  <button className="primary" onClick={() => setMenu(!menu)}>
-                    <Download size={16} />
-                    Tải về
-                  </button>
-                  {menu && (
-                    <div className="export-menu">
+                <div className="delivery-actions">
+                {(["queue", "export"] as const).map(action => (
+                  <React.Fragment key={action}>
+                    {action === "export" && <button className="generate" disabled={busy || readyCount === totalCount} onClick={() => run("generate")}>
+                      <AudioLines size={16} /><span>Tạo giọng tất cả<small>({readyCount}/{totalCount} đã tạo)</small></span>
+                    </button>}
+                    <div className="export-wrap">
+                      <button className="primary" aria-expanded={menu === action} onClick={() => setMenu(menu === action ? null : action)}>
+                        {action === "queue" ? <Plus size={16} /> : <Download size={16} />}
+                        {action === "queue" ? "Thêm vào hàng đợi" : "Xuất"}
+                      </button>
+                      {menu === action && (
+                    <div className="export-menu" role="region" aria-label={action === "queue" ? "Tùy chọn hàng đợi" : "Tùy chọn xuất"}>
+                      <strong>{action === "queue" ? "Thêm phiên bản vào hàng đợi" : "Xuất ngay"}</strong>
+                      <p className="hint">{action === "queue" ? "Lưu bản chờ. Bấm Bắt đầu trong hàng đợi để xử lý." : "Xử lý ngay bằng worker CPU."}</p>
+                      {action === "queue" && <button disabled={busy} onClick={() => run("generate", undefined, false, true)}>Chỉ tạo giọng</button>}
                       <label className="check">
                         <input type="checkbox" checked={keepOverflow} onChange={e => setKeepOverflow(e.target.checked)} />
                         Cho phát tiếp câu tràn (chấp nhận chồng lời)
@@ -664,7 +663,7 @@ function App() {
                       </label>
                       <button
                         disabled={busy}
-                        onClick={() => run("mp3")}
+                        onClick={() => run("mp3", undefined, false, action === "queue")}
                       >
                         <AudioLines size={18} />
                         <span>
@@ -675,7 +674,7 @@ function App() {
                         disabled={
                           busy || project.audio_index === null
                         }
-                        onClick={() => run("mkv")}
+                        onClick={() => run("mkv", undefined, false, action === "queue")}
                       >
                         <Film size={18} />
                         <span>
@@ -683,7 +682,10 @@ function App() {
                         </span>
                       </button>
                     </div>
-                  )}
+                      )}
+                    </div>
+                  </React.Fragment>
+                ))}
                 </div>
               </div>
             </header>
@@ -725,7 +727,7 @@ function App() {
                     disabled={busy || active(job)}
                     onClick={() => {
                       if (preview) { setPreview(false); audio.current?.pause(); return; }
-                      if (!validOutput) { void run("mp3",undefined,false,true); return; }
+                      if (!validOutput) { void run("mp3"); return; }
                     setPreview(true);
                     if (video.current && audio.current) {
                       audio.current.currentTime = video.current.currentTime;

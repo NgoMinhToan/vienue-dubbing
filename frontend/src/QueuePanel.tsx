@@ -12,7 +12,8 @@ export default function QueuePanel({onEdit,onRefresh}:{onEdit:(id:string)=>void;
       {['waiting','error','cancelled'].includes(j.status)&&<button disabled={busy} onClick={()=>act(async()=>{await request('/queue/'+j.id+'/start','POST');})}>{j.status==='waiting'?'Bắt đầu':'Thử lại'}</button>}
       {['waiting','queued'].includes(j.status)&&<button disabled={busy} onClick={()=>act(async()=>{if(!confirm('Gỡ phiên bản khỏi hàng đợi và khôi phục nội dung về dự án gốc? Các chỉnh sửa hiện tại của dự án sẽ được thay bằng bản này.'))return;const p=await request<{revision:number}>('/projects/'+j.project);await request('/queue/'+j.id+'/edit','POST',{revision:p.revision});onEdit(j.project);})}>Chỉnh sửa</button>}
       {['waiting','queued','running'].includes(j.status)&&<button disabled={busy} onClick={()=>act(async()=>{await request('/jobs/'+j.id+'/cancel','POST');})}>Dừng</button>}
-      {j.status==='complete'&&j.file&&<a className="download" href={'/api/projects/'+j.project+'/files/'+j.file+'?download=true'}>Tải {j.kind.toUpperCase()}</a>}
+      <button disabled={busy || j.status==='running'} title={j.status==='running' ? 'Dừng tác vụ và chờ kết thúc trước khi xóa' : 'Xóa phiên bản khỏi hàng đợi'} onClick={()=>act(async()=>{if(!confirm('Xóa phiên bản này khỏi hàng đợi và xóa file xuất của phiên bản? Dự án gốc và các phiên bản khác được giữ nguyên.'))return;await request('/queue/'+j.id,'DELETE');})}>Xóa khỏi hàng đợi</button>
+      {j.status==='complete' &&j.file&&<a className="download" href={'/api/projects/'+j.project+'/files/'+j.file+'?download=true'}>Tải {j.kind.toUpperCase()}</a>}
     </article>)}
   </section>;
 }

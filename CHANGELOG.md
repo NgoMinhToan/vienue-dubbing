@@ -3,6 +3,8 @@
 ## Unreleased — 2026-09-14–15
 
 ### WebUI và media
+- Tách nút Thêm vào hàng đợi và Xuất; căn lại thanh tác vụ, giữ Tạo giọng tất cả chạy ngay.
+- Xóa riêng phiên bản hàng đợi với xác nhận; bảo vệ worker đang chạy, dự án và cache dùng chung.
 - Hàng đợi phiên bản bền vững, chọn xử lý ngay/chờ, số thứ tự theo dự án, chỉnh sửa snapshot, hủy/thử lại/restart và xóa dự án sau khi worker dừng an toàn.
 - Thêm chọn video/SRT từ APP_MEDIA_ROOT qua UI và scripts/media_cli.py; hỗ trợ mount nguồn chỉ đọc, chặn traversal/symlink ra ngoài.
 - CI/CD GHCR: test + Docker smoke trước khi push, tag edge/SHA/semver và latest chỉ cho release ổn định.

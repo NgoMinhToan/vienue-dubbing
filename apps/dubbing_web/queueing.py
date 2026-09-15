@@ -92,6 +92,25 @@ class Queue:
             del self.jobs.items[id]
             return {'project':item['project']}
 
+    def remove(self, id):
+        with self.jobs.lock:
+            item = self.jobs.items[id]
+            if not item.get('version'):
+                raise Conflict('Tác vụ không thuộc hàng đợi phiên bản.')
+            if item['status'] == 'running' or item.get('_executing'):
+                raise Conflict('Dừng tác vụ và chờ xử lý kết thúc trước khi xóa.')
+            folder = self.snapshot_path(item).parent.resolve()
+            expected = (self.store.directory(item['project']) / 'renders').resolve()
+            if folder.parent != expected:
+                raise ValueError('Đường dẫn hàng đợi không hợp lệ.')
+            # Invalidate queued callbacks before removing snapshots; keep shared clips.
+            item['cancel'].set()
+            item['status'] = 'cancelled'
+            self.jobs.persist(item)
+            shutil.rmtree(folder)
+            del self.jobs.items[id]
+            return {'ok': True}
+
     def summary(self,id):
         items=[j for j in self.jobs.items.values() if j['project']==id and j.get('version')]
         return {'total':len(items),'waiting':sum(j['status'] in ('waiting','queued') for j in items),
@@ -120,6 +139,9 @@ def install_queue(app,store,jobs):
     @router.post('/projects/{id}/versions')
     def add(id: str,values:VersionRequest):
         return queue.add(id,values)
+    @router.delete('/queue/{id}')
+    def remove(id: str):
+        return queue.remove(id)
     @router.post('/queue/{id}/start')
     def start(id: str):
         return queue.start(id)

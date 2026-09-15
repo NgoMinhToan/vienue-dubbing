@@ -133,3 +133,39 @@ def test_project_voice_sample_matches_dictionary_cache_key(tmp_path):
         assert response.status_code==200
         app.state.jobs.pool.run()
         assert calls[0].startswith('Chào bạn,')
+
+
+def test_remove_version_preserves_project_and_other_jobs(tmp_path):
+    app,p,root,calls=fixture(tmp_path)
+    with TestClient(app) as client:
+        item=add(client,p,mode='now')
+        other=add(client,p)
+        clip=root/'clips'/'keep.wav'
+        clip.write_bytes(b'cached audio')
+        assert client.delete('/api/queue/'+item['id']).status_code==200
+        app.state.jobs.pool.run()  # A scheduled callback must not recreate deleted files.
+        assert calls==[]
+        assert not (root/'renders'/item['id']).exists()
+        assert clip.read_bytes()==b'cached audio'
+        assert app.state.store.get(p['id'])==p
+        assert [j['id'] for j in client.get('/api/queue').json()]==[other['id']]
+        assert client.delete('/api/queue/'+item['id']).status_code==404
+        assert add(client,p)['version']==3
+
+
+def test_remove_refuses_running_and_cleanup_then_removes_output(tmp_path):
+    app,p,root,calls=fixture(tmp_path)
+    with TestClient(app) as client:
+        item=add(client,p)
+        stored=app.state.jobs.items[item['id']]
+        folder=root/'renders'/item['id']
+        stored['status']='running'
+        assert client.delete('/api/queue/'+item['id']).status_code==409
+        stored.update(status='complete',_executing=True)
+        assert client.delete('/api/queue/'+item['id']).status_code==409
+        assert folder.exists()
+        stored['_executing']=False
+        (folder/'output.mp3').write_bytes(b'output')
+        assert client.delete('/api/queue/'+item['id']).status_code==200
+        assert not folder.exists()
+        assert client.get('/api/queue').json()==[]
