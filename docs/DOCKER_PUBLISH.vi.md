@@ -17,7 +17,7 @@ Workflow `.github/workflows/dubbing.yml` kiểm thử Windows/Linux, build conta
 | Prerelease | Có tag phiên bản, không đổi `latest` |
 | workflow_dispatch trên main | Kiểm thử và publish latest/edge/SHA |
 
-Registry: `ghcr.io/ngominhtoan/vienue-dubbing`, nền tảng `linux/amd64`. Workflow dùng `GITHUB_TOKEN` với `packages:write`, không cần lưu PAT trong source. Repo và package đã public; người dùng có thể pull không cần đăng nhập. Khi fork, sửa tên image và điều kiện repository ở job publish theo repo của bạn.
+Registry: `ghcr.io/ngominhtoan/vienue-dubbing`, nền tảng `linux/amd64` và `linux/arm64`. Docker tự chọn kiến trúc phù hợp khi pull các tag mới. Workflow chạy smoke test trên runner AMD64 và ARM64, build bằng Buildx/QEMU rồi kiểm tra manifest có đủ hai kiến trúc sau khi push. Workflow dùng `GITHUB_TOKEN` với `packages:write`, không cần lưu PAT trong source. Repo và package đã public; người dùng có thể pull không cần đăng nhập. Khi fork, sửa tên image và điều kiện repository ở job publish theo repo của bạn.
 
 ```sh
 docker pull ghcr.io/ngominhtoan/vienue-dubbing:edge

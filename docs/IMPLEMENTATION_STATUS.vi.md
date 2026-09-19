@@ -31,7 +31,7 @@ Checklist chính: [EXECUTION_PLAN.vi.md](EXECUTION_PLAN.vi.md).
 - Chưa thử mọi codec/edit list/VFR của video thực tế; các fixture timestamp/VFR, fallback MOV và nhiều audio đã có test.
 - Chưa đo RAM peak cho phim dài; cài sạch Windows được thử bằng venv mới trên cùng máy, không phải máy vật lý thứ hai.
 - Tiến độ tải model đang ở mức trạng thái, chưa có phần trăm mỗi file. Offline sau khi tải model đã được thử trước đây trên Windows và Linux.
-- Docker Desktop local chưa chạy; nghiệm thu container hiện dùng GitHub Linux runner. Chỉ hỗ trợ linux/amd64, một instance trên mỗi data volume.
+- Docker Desktop local chưa chạy; nghiệm thu container dùng GitHub Linux runner AMD64 và ARM64. CI/CD build và publish image cho linux/amd64 và linux/arm64, một instance trên mỗi data volume.
 - Domain/HTTPS/auth/nhiều người dùng không nằm trong đợt này.
 
 
