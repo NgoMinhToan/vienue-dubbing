@@ -108,7 +108,6 @@ Compose thay mount có cùng target `/data`, giữ mount `/media` từ file gố
 
 ```bash
 mkdir -p /srv/vienue-data
-sudo chown -R 1000:1000 /srv/vienue-data
 DATA_DIR=/srv/vienue-data docker compose -f compose.yaml -f compose.bind.yaml up -d
 ```
 
@@ -132,11 +131,10 @@ docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7
 
 ```bash
 mkdir -p /srv/vienue-data /srv/videos
-sudo chown -R 1000:1000 /srv/vienue-data
 docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7861 --mount type=bind,source=/srv/vienue-data,target=/data --mount type=bind,source=/srv/videos,target=/media,readonly -e APP_MEDIA_ROOT=/media ghcr.io/ngominhtoan/vienue-dubbing:latest
 ```
 
-Container chạy UID 1000; `/data` cần quyền ghi, `/media` chỉ cần quyền đọc. Chỉ nhập file từ `/media` không sửa/xóa bản nguồn.
+Container mặc định chạy root khi không đặt `UID` và `GID`, nên bind mount thông thường không cần chown trước. Muốn chạy bằng user riêng, đặt `UID=1000`, `GID=1000` trong environment và cấp quyền ghi thư mục dữ liệu cho user đó. Nếu chỉ đặt một biến, biến còn thiếu mặc định `1000`. Image không tự đổi owner file trên host. `/media` chỉ cần quyền đọc; ứng dụng không sửa/xóa bản nguồn. Docker `--user` cũng được hỗ trợ; tránh đặt UID/GID khác với `--user`.
 
 ### Windows Docker Desktop (Linux containers)
 
@@ -147,10 +145,9 @@ docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7
 
 ### Cổng, cache model, thư mục tạm và giới hạn upload riêng
 
-Các volume tách riêng phải ghi được bởi UID 1000. Chuẩn bị quyền trước khi khởi động:
+Các volume tách riêng phải ghi được bởi user chạy ứng dụng (mặc định root):
 
 ```bash
-docker run --rm --user 0 -v vienue_models:/models -v vienue_tmp:/worktmp --entrypoint chown ghcr.io/ngominhtoan/vienue-dubbing:latest -R 1000:1000 /models /worktmp
 docker run -d --name vienue-custom -p 127.0.0.1:8080:8080 -v vienue_data:/data -v vienue_models:/models -v vienue_tmp:/worktmp -e APP_HOST=0.0.0.0 -e APP_PORT=8080 -e HF_HOME=/models -e APP_TEMP_DIR=/worktmp -e APP_MAX_VIDEO_BYTES=10737418240 -e APP_MIN_FREE_BYTES=1073741824 ghcr.io/ngominhtoan/vienue-dubbing:latest
 ```
 
@@ -167,6 +164,7 @@ Image và Compose đã đặt mặc định; không bắt buộc tạo `.env` đ
 
 | Biến | Mặc định trong image / Compose | Ý nghĩa |
 |---|---|---|
+| `UID`, `GID` | Không đặt: chạy root | Khi đặt một hoặc cả hai biến, chạy bằng UID/GID chỉ định; phần còn thiếu mặc định `1000`. Thư mục dữ liệu phải ghi được bởi user này |
 | `APP_HOST` | `0.0.0.0` | Địa chỉ lắng nghe trong container; giữ giá trị này để port mapping hoạt động |
 | `APP_PORT` | `7861` | Cổng bên trong; thay đổi phải sửa vế phải của `-p` |
 | `APP_DATA_DIR` | `/data` | Dự án, SQLite, giọng custom, mẫu nghe và bản xuất; cần mount bền vững |

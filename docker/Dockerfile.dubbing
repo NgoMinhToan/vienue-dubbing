@@ -13,9 +13,11 @@ RUN pip install --no-cache-dir -r requirements-dubbing.lock.txt
 COPY apps/ apps/
 COPY src/ src/
 COPY scripts/start.py scripts/start.py
+COPY docker/entrypoint.py /usr/local/bin/dubbing-entrypoint.py
 COPY --from=frontend /build/dist frontend/dist
 RUN useradd --create-home --uid 1000 app && mkdir /data && chown app:app /data
 ENV APP_HOST=0.0.0.0 APP_PORT=7861 APP_DATA_DIR=/data HF_HOME=/data/models PYTHONUTF8=1 PYTHONUNBUFFERED=1
-USER app
+USER root
 EXPOSE 7861
+ENTRYPOINT ["python", "/usr/local/bin/dubbing-entrypoint.py"]
 CMD ["python", "scripts/start.py", "--headless"]

@@ -50,7 +50,7 @@ docker volume create vieneu-data
 docker run --rm --name vieneu-dubbing -p 127.0.0.1:7861:7861 -v vieneu-data:/data vieneu-dubbing
 ```
 
-Container dùng CPU, không cần CUDA; chạy user không phải root. Với bind mount thay named volume, thư mục phải ghi được bởi UID 1000. Khi triển khai domain sau này cần thêm xác thực, giới hạn upload, HTTPS và reverse proxy; bản hiện tại dành cho một người dùng cục bộ.
+Container dùng CPU, không cần CUDA; mặc định chạy root nếu không đặt UID/GID. Có thể đặt biến môi trường `UID` và `GID` để chạy bằng user riêng (phần còn thiếu mặc định 1000); khi đó thư mục mount phải ghi được bởi user đã chọn. Khi triển khai domain sau này cần thêm xác thực, giới hạn upload, HTTPS và reverse proxy; bản hiện tại dành cho một người dùng cục bộ.
 
 ## Kiểm thử
 

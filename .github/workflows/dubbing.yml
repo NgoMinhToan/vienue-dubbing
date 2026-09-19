@@ -53,7 +53,18 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker compose -f compose.yaml config --quiet
       - run: docker build --platform ${{ matrix.platform }} -f docker/Dockerfile.dubbing -t dubbing:test .
-      - name: Verify non-root container and HTTP startup
+      - name: Verify runtime UID and GID configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(docker run --rm dubbing:test id -u)" = 0
+          test "$(docker run --rm -e UID=1234 -e GID=2345 dubbing:test id -u)" = 1234
+          test "$(docker run --rm -e UID=1234 -e GID=2345 dubbing:test id -g)" = 2345
+          test "$(docker run --rm -e UID=1234 dubbing:test id -g)" = 1000
+          test "$(docker run --rm -e GID=2345 dubbing:test id -u)" = 1000
+          test "$(docker run --rm --user 1234:2345 dubbing:test id -u)" = 1234
+          if docker run --rm -e UID=invalid dubbing:test id; then exit 1; fi
+      - name: Verify root and custom-user HTTP startup with bind mounts
         shell: bash
         run: |
           set -euo pipefail
@@ -61,16 +72,27 @@ jobs:
           docker run --rm --user "$(id -u):$(id -g)" -v "$RUNNER_TEMP/media:/fixtures" --entrypoint ffmpeg dubbing:test -v error -f lavfi -i color=s=64x64:d=1 -c:v libx264 /fixtures/source.mp4
           python -c 'import os,pathlib; pathlib.Path(os.environ["RUNNER_TEMP"],"media","phụ đề.srt").write_text("1\n00:00:00,000 --> 00:00:00,500\nXin chào\n",encoding="utf-8")'
           chmod -R a+rX "$RUNNER_TEMP/media"
-          docker run -d --name dubbing-smoke -p 127.0.0.1:7861:7861 --mount "type=bind,source=$RUNNER_TEMP/media,target=/media,readonly" -e APP_MEDIA_ROOT=/media dubbing:test
-          trap 'docker logs dubbing-smoke; docker rm -f dubbing-smoke' EXIT
-          test "$(docker exec dubbing-smoke id -u)" != 0
-          for attempt in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:7861/api/health > /tmp/health.json; then break; fi
-            sleep 2
+          for identity in '0:0' '1234:2345'; do
+            data="$RUNNER_TEMP/data-${identity/:/-}"
+            sudo mkdir -p "$data"
+            sudo chown "$identity" "$data"
+            sudo chmod 700 "$data"
+            options=()
+            if [ "$identity" != '0:0' ]; then options=(-e UID=1234 -e GID=2345); fi
+            docker run -d --name dubbing-smoke -p 127.0.0.1:7861:7861 "${options[@]}" --mount "type=bind,source=$data,target=/data" --mount "type=bind,source=$RUNNER_TEMP/media,target=/media,readonly" -e APP_MEDIA_ROOT=/media dubbing:test
+            trap 'docker logs dubbing-smoke; docker rm -f dubbing-smoke' EXIT
+            rm -f /tmp/health.json
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent http://127.0.0.1:7861/api/health > /tmp/health.json; then break; fi
+              sleep 2
+            done
+            curl --fail --silent http://127.0.0.1:7861/ > /tmp/index.html
+            python -c 'import json; h=json.load(open("/tmp/health.json")); assert all(h["tools"].values()), h'
+            python -c 'import json,urllib.request; r=urllib.request.Request("http://127.0.0.1:7861/api/media/import",data=json.dumps({"video":"source.mp4","srt":"phụ đề.srt"}).encode(),headers={"Content-Type":"application/json"}); p=json.load(urllib.request.urlopen(r)); assert p["cues"][0]["text"]=="Xin chào"'
+            test "$(sudo stat -c '%u:%g' "$data/tmp")" = "$identity"
+            docker rm -f dubbing-smoke
+            trap - EXIT
           done
-          curl --fail --silent http://127.0.0.1:7861/ > /tmp/index.html
-          python -c 'import json; h=json.load(open("/tmp/health.json")); assert all(h["tools"].values()), h'
-          python -c 'import json,urllib.request; r=urllib.request.Request("http://127.0.0.1:7861/api/media/import",data=json.dumps({"video":"source.mp4","srt":"phụ đề.srt"}).encode(),headers={"Content-Type":"application/json"}); p=json.load(urllib.request.urlopen(r)); assert p["cues"][0]["text"]=="Xin chào"'
   publish:
     needs: docker-smoke
     if: github.repository == 'NgoMinhToan/vienue-dubbing' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))

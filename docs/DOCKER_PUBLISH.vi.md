@@ -6,7 +6,7 @@ Nghiệm thu 15/09/2026: [CI 34874567845](https://github.com/NgoMinhToan/vienue-
 ghcr.io/ngominhtoan/vienue-dubbing@sha256:6e6ffb621f4b902dd1ed3e776ebfc775862a319518a12329269b9f9129b3c61b
 ```
 
-Workflow `.github/workflows/dubbing.yml` kiểm thử Windows/Linux, build container và kiểm tra HTTP/non-root trước khi publish.
+Workflow `.github/workflows/dubbing.yml` kiểm thử Windows/Linux, build container và kiểm tra HTTP với bind mount ở cả chế độ root mặc định và UID/GID tùy chỉnh trước khi publish.
 
 | Trigger | Kết quả |
 |---|---|
@@ -36,7 +36,7 @@ Ví dụ mount bất kỳ thư mục host vào `/media` (thay đường dẫn ng
 docker run --rm -p 127.0.0.1:7861:7861 -v dubbing-data:/data --mount type=bind,source=/home/user/videos,target=/media,readonly -e APP_MEDIA_ROOT=/media ghcr.io/ngominhtoan/vienue-dubbing:edge
 ```
 
-Trên PowerShell dùng `--mount "type=bind,source=D:\Videos,target=/media,readonly"`. Mount nguồn chỉ cần quyền đọc; `/data` cần quyền ghi cho UID 1000. File được sao chép vào data khi tạo dự án, nên cần dự phòng dung lượng. Chỉ hỗ trợ một root mỗi instance, nhưng có thể mount nhiều thư mục host làm các thư mục con bên dưới root đó.
+Trên PowerShell dùng `--mount "type=bind,source=D:\Videos,target=/media,readonly"`. Mount nguồn chỉ cần quyền đọc; `/data` cần quyền ghi cho user chạy ứng dụng. Mặc định image chạy root nếu không đặt `UID` và `GID`. Để chạy user riêng, thêm `-e UID=1000 -e GID=1000` và chuẩn bị quyền thư mục host tương ứng; nếu chỉ đặt một biến, phần còn thiếu mặc định 1000. Image không tự chown dữ liệu. Bỏ `command: []` trong Compose để dùng lệnh khởi động mặc định. File được sao chép vào data khi tạo dự án, nên cần dự phòng dung lượng. Chỉ hỗ trợ một root duyệt file mỗi instance, nhưng có thể mount nhiều thư mục host làm các thư mục con bên dưới root đó.
 
 CLI dùng cùng API (đường dẫn tương đối theo root server, không phải đường dẫn máy chạy CLI):
 
