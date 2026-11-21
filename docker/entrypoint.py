@@ -12,7 +12,7 @@ def prepare_output(uid=None, gid=None):
     except OSError as exc:
         print(f"Cannot create output directory {directory}: {exc}", file=sys.stderr)
         return
-    if uid is not None and os.geteuid() == 0:
+    if uid is not None and hasattr(os, "chown") and getattr(os, "geteuid", lambda: -1)() == 0:
         try:
             os.chown(directory, uid, gid)
         except OSError as exc:
