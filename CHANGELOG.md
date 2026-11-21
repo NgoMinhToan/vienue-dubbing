@@ -3,6 +3,9 @@
 ## Unreleased — 2026-09-14–15
 
 ### WebUI và media
+- Bỏ giới hạn dung lượng video 20 GiB (`APP_MAX_VIDEO_BYTES`); chỉ còn kiểm tra dung lượng đĩa trống khi lưu nguồn.
+- Trình chọn thư mục server hiện icon folder/video/SRT, dung lượng từng file và đánh dấu file đang chọn.
+- Tùy chọn **Dùng trực tiếp file**: video được tham chiếu tại chỗ, không sao chép vào dự án. File mất hoặc đổi được phát hiện khi mở; file mất thì chặn mở và cho chọn lại nguồn trong thư mục server.
 - Timeline: Ctrl+wheel zoom, mũi tên dời 0,1 giây, Delete xóa khi focus timeline; dùng Hoàn tác để khôi phục.
 - Studio hai cột và thẻ giọng gọn hơn; README viết mới kèm ảnh chụp và Compose CPU.
 - Repository/GHCR public, latest theo main; làm sạch ancestry upstream, giữ lịch sử phát triển riêng.

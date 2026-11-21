@@ -7,6 +7,10 @@ from pydantic import BaseModel, Field, model_validator
 from .pronunciation import spoken_text
 
 
+class SourceMissing(ValueError):
+    """The in-place source video no longer exists or cannot be analysed."""
+
+
 class Cue(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     start: float = Field(ge=0)

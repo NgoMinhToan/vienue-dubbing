@@ -19,6 +19,8 @@ import {
   Undo2,
   Redo2,
   FolderOpen,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import "./style.css";
 import VoiceLibrary from "./VoiceLibrary";
@@ -54,6 +56,8 @@ type Project = {
   cues: Cue[];
   video_file: string;
   video_name: string;
+  video_external?: boolean;
+  source_warning?: string | null;
   media: {
     duration: number;
     audio_tracks: {
@@ -82,7 +86,9 @@ type Summary = {
   name: string;
   count: number;
   updated: string;
+  revision: number;
   video_name: string;
+  available?: boolean;
 };
 type Health = {
   model: string;
@@ -135,7 +141,11 @@ function TimeField({value,label,onCommit}:{value:number;label:string;onCommit:(v
 
 function App() {
   const [sourceMode,setSourceMode]=useState('upload');
+  const [inPlace,setInPlace]=useState(false);
   const [localSources,setLocalSources]=useState({video:'',srt:''});
+  const [repair,setRepair]=useState<Summary|null>(null);
+  const [repairVideo,setRepairVideo]=useState('');
+  const [repairError,setRepairError]=useState('');
   const [keepOverflow, setKeepOverflow] = useState(true);
   const [list, setList] = useState<Summary[]>([]),
     [project, setProject] = useState<Project | null>(null),
@@ -353,7 +363,8 @@ function App() {
     }
   }
   function file(path: string, download = false) {
-    return `/api/projects/${project?.id}/files/${path}${download ? "?download=true" : ""}`;
+    const encoded = path.split("/").map(encodeURIComponent).join("/");
+    return `/api/projects/${project?.id}/files/${encoded}${download ? "?download=true" : ""}`;
   }
   async function replaceSource(kind: "video" | "srt", chosen?: File) {
     if (!chosen) return;
@@ -512,13 +523,14 @@ function App() {
               <div className="project-grid">
                 {list.map((p) => (
                   <article className="project-card" key={p.id}>
-                    <button className="project-open" onClick={() => open(p.id)}>
+                    <button className="project-open" onClick={() => p.available === false ? (setRepair(p), setRepairVideo(""), setRepairError("")) : void open(p.id)}>
                       <div className="card-cover">
                         <Film size={32} />
                         <span>{p.count} câu</span>
                       </div>
                       <h3>{p.name}</h3>
                       <p>{p.video_name}</p>
+                      {p.available === false && <p className="source-missing"><AlertTriangle size={13} /> Thiếu file nguồn — bấm để chọn lại.</p>}
                       {p.queue && <p>{p.queue.waiting} đang chờ · {p.queue.completed}/{p.queue.total} hoàn tất<br/>Phiên bản: {p.queue.current.length?'đang xử lý '+p.queue.current.join(', '):p.queue.last_completed?'đã xong '+p.queue.last_completed:'chưa chạy'}</p>}
                       <div className="card-footer">
                         <span>
@@ -771,6 +783,7 @@ function App() {
                   Bấm vào một câu hoặc timeline để tua tới đúng chỗ.
                 </p>
                 {(videoFailed || (project.media.audio_tracks.length > 1 && !project.proxy_file)) && <div className="fit-panel"><p>Để xem trước đúng track âm gốc đã chọn, hãy tạo bản video tương thích.</p><button disabled={busy || active(job)} onClick={() => void run("proxy")}>Tạo video tương thích để xem trước</button></div>}
+                {project.source_warning && <p className="source-warning" role="status"><AlertTriangle size={14}/>{project.source_warning}</p>}
                 {!!project.cue_warnings?.length && <details className="fit-panel"><summary>{project.cue_warnings.length} cảnh báo mốc SRT</summary>{project.cue_warnings.map((w,i) => <p key={i}>Câu {w.cue}: {w.message}</p>)}</details>}
                 <div className="source-info">
                   <Film size={16} />
@@ -1184,7 +1197,7 @@ function App() {
               setError("");
               try {
                 const form = new FormData(e.currentTarget);
-                const p = sourceMode === 'local' ? await api<Project>('/media/import',json('POST',{name:form.get('name'),...localSources})) : await api<Project>("/projects", {
+                const p = sourceMode === 'local' ? await api<Project>('/media/import',json('POST',{name:form.get('name'),...localSources,in_place:inPlace})) : await api<Project>("/projects", {
                   method: "POST",
                   body: form,
                 });
@@ -1221,7 +1234,7 @@ function App() {
                 required
               />
             </label>
-            {sourceMode === 'local' ? <MediaBrowser onChange={(video,srt)=>setLocalSources({video,srt})}/> : <><label className="file-drop">
+            {sourceMode === 'local' ? <><MediaBrowser onChange={(video,srt)=>setLocalSources({video,srt})}/><label className="inline-check"><input type="checkbox" checked={inPlace} onChange={e=>setInPlace(e.target.checked)}/>Dùng trực tiếp file, không sao chép vào dự án</label><small className="check-note">File được đọc tại vị trí hiện tại. Nếu bị di chuyển hoặc xóa, dự án sẽ không mở được cho đến khi chọn lại nguồn.</small></> : <><label className="file-drop">
               <Upload size={24} />
               <strong>Chọn video</strong>
               <small>MP4, MKV, MOV, AVI, WEBM</small>
@@ -1245,6 +1258,55 @@ function App() {
               <button className="primary" disabled={busy || (sourceMode==='local' && (!localSources.video||!localSources.srt))}>
                 {busy ? "Đang nhập dữ liệu…" : "Tạo dự án"}
                 <ArrowLeft size={15} style={{ transform: "rotate(180deg)" }} />
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {repair && (
+        <div className="modal-overlay">
+          <form
+            className="modal"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setBusy(true);
+              setRepairError("");
+              try {
+                const next = await api<Project>(`/projects/${repair.id}/source/in-place`, json("POST", { revision: repair.revision, video: repairVideo }));
+                setProject(next);
+                setPage("editor");
+                setDirty(false);
+                setHistory([]);
+                setFuture([]);
+                setJob(next.last_job || null);
+                setSelected("");
+                setPreview(false);
+                setVideoFailed(false);
+                setRepair(null);
+                setRepairVideo("");
+              } catch (e) {
+                setRepairError((e as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <div className="modal-heading">
+              <h2>Chọn lại nguồn video</h2>
+              <button type="button" aria-label="Đóng" onClick={() => {setRepair(null);setRepairVideo("");setRepairError("");}}>
+                <X size={20} />
+              </button>
+            </div>
+            <p>Dự án <strong>{repair.name}</strong> đang tham chiếu một file bị thiếu hoặc không đọc được. Chọn lại video trong thư mục server; phụ đề và các chỉnh sửa câu vẫn được giữ.</p>
+            {repairError && <p role="alert" className="warning">{repairError}</p>}
+            <MediaBrowser key={repair.id} onlyVideo onChange={(video)=>setRepairVideo(video)} />
+            <div className="modal-footer">
+              <button type="button" onClick={() => {setRepair(null);setRepairVideo("");setRepairError("");}}>
+                Hủy
+              </button>
+              <button className="primary" disabled={busy || !repairVideo}>
+                <RefreshCw size={15} />
+                {busy ? "Đang lưu…" : "Dùng file này"}
               </button>
             </div>
           </form>

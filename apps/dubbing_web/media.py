@@ -80,6 +80,13 @@ def tempo(source, destination, speed, cancel):
                     ",".join(f"atempo={n:.8f}" for n in factors), "-ar", "48000", "-ac", "1", destination], cancel)
 
 
+def source_path(project, directory):
+    """Resolve the source video: an in-place absolute path or a copy inside the project."""
+    if project.get("video_external") and project.get("video_path"):
+        return Path(project["video_path"])
+    return directory / project["video_file"]
+
+
 def mix(project, directory, rendered, destination, cancel):
     """Write PCM in blocks; overlapping voice clips add rather than overwrite."""
     import numpy as np
@@ -88,7 +95,7 @@ def mix(project, directory, rendered, destination, cancel):
     duration = max(project["media"]["duration"], max((c["start"] + c["duration"] for c in rendered), default=0))
     total = int(round(duration * 48000))
     background = destination.parent / "background.wav"
-    source = directory / project["video_file"]
+    source = source_path(project, directory)
     if project["audio_index"] is not None and project["background"] != "off":
         # Decode selected source including its relative start offset on the video timeline.
         audio = next(a for a in project["media"]["audio_tracks"] if a["index"] == project["audio_index"])
@@ -148,7 +155,7 @@ def encode_mp3(wav, destination, cancel):
 def mux_mkv(project, directory, dubbed, destination, cancel):
     if project["audio_index"] is None:
         raise ValueError("Video không có âm gốc nên không thể xuất MKV đúng hai track. Bạn vẫn có thể tải MP3.")
-    source = directory / project["video_file"]
+    source = source_path(project, directory)
     original_source = source
     try:
         info = identify(source)
