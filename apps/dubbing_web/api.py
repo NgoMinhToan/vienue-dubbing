@@ -13,15 +13,18 @@ from pydantic import BaseModel
 from typing import Literal
 
 from .config import ROOT, Settings, executable
-from .domain import Edit, parse_srt, voice_key, timing, cue_warnings
+from .domain import Edit, SourceMissing, parse_srt, voice_key, timing, cue_warnings
 from .store import Store, Conflict
 from .jobs import Jobs
 from .media import inspect_video
 from .library import install_library
 from .pronunciation import install_dictionary
-from .media_browser import install_media_browser
+from .media_browser import VIDEO_EXTENSIONS, install_media_browser, resolve_media
 from .queueing import install_queue
 from .studio import install_studio
+
+SRT_LIMIT = 10 * 1024 * 1024
+MEDIA_SUFFIXES = (".mp3", ".mkv", ".mp4", ".mov", ".avi", ".webm", ".m4v", ".wav")
 
 
 class JobRequest(BaseModel):
@@ -29,6 +32,11 @@ class JobRequest(BaseModel):
     cue_id: str | None = None
     allow_overlap: bool = False
     overflow_policy: Literal["keep", "skip"] | None = None
+
+
+class SourcePathRequest(BaseModel):
+    revision: int
+    video: str
 
 
 def create_app(settings=None):
@@ -39,13 +47,9 @@ def create_app(settings=None):
     voices = presets["presets"]
 
     def copy_upload(source, target):
-        limit = int(os.environ.get("APP_MAX_VIDEO_BYTES", 20 * 1024**3))
+        # No size cap: a video of any length is accepted as long as the disk can hold it.
         reserve = int(os.environ.get("APP_MIN_FREE_BYTES", 512 * 1024**2))
-        total = 0
         while chunk := source.read(1024 * 1024):
-            total += len(chunk)
-            if total > limit:
-                raise ValueError(f"Video vượt giới hạn {limit // 1024**2} MB.")
             if shutil.disk_usage(settings.data).free < len(chunk) + reserve:
                 raise ValueError("Không đủ dung lượng đĩa để lưu video. Hãy giải phóng dung lượng.")
             target.write(chunk)
@@ -83,6 +87,10 @@ def create_app(settings=None):
     async def conflict(request, exc):
         return JSONResponse({"detail": str(exc)}, 409)
 
+    @app.exception_handler(SourceMissing)
+    async def missing_source(request, exc):
+        return JSONResponse({"detail": str(exc), "code": "source_missing"}, 409)
+
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
         return JSONResponse({"detail": str(exc)}, 400)
@@ -108,6 +116,37 @@ def create_app(settings=None):
                 cue["audio"] = "clips/" + key + ".wav"
         return project
 
+    def ensure_source(project):
+        """Validate an in-place source and re-inspect it when the file changed.
+
+        Raises SourceMissing when the project can no longer be opened safely.
+        Returns a warning message when the video was re-analysed.
+        """
+        if not project.get("video_external"):
+            return None
+        path = Path(project.get("video_path") or "")
+        try:
+            stat = path.stat()
+        except OSError as exc:
+            raise SourceMissing(f"Không tìm thấy video nguồn {path.name or ''}. Chọn lại nguồn cho dự án trước khi mở.") from exc
+        if not path.is_file():
+            raise SourceMissing(f"Không tìm thấy video nguồn {path.name}. Chọn lại nguồn cho dự án trước khi mở.")
+        previous = project.get("video_stat") or {}
+        if previous.get("size") == stat.st_size and previous.get("mtime_ns") == stat.st_mtime_ns:
+            return None
+        try:
+            info = inspect_video(path)
+        except Exception as exc:
+            raise SourceMissing(f"Video nguồn {path.name} đã thay đổi nhưng không đọc được. Chọn lại nguồn cho dự án.") from exc
+        indices = [a["index"] for a in info["audio_tracks"]]
+        if project.get("audio_index") not in indices:
+            selected = next((a["index"] for a in info["audio_tracks"] if a["default"]), indices[0] if indices else None)
+            project["audio_index"] = selected
+        project["media"] = info
+        project["video_stat"] = {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+        store.save(project)
+        return "Video nguồn đã thay đổi kể từ lúc nhập. Đã phân tích lại video; hãy kiểm tra lại phụ đề."
+
     @app.get("/api/health")
     def health():
         tools = {}
@@ -125,41 +164,83 @@ def create_app(settings=None):
     @app.get("/api/projects")
     def projects():
         with jobs.lock:
-            return [{"id": p["id"], "name": p["name"], "count": len(p["cues"]), "updated": p["updated"], "video_name": p["video_name"], "queue":queue.summary(p['id'])} for p in store.list()]
+            items = []
+            for p in store.list():
+                available = True
+                if p.get("video_external"):
+                    try:
+                        available = Path(p.get("video_path") or "").is_file()
+                    except OSError:
+                        available = False
+                items.append({"id": p["id"], "name": p["name"], "count": len(p["cues"]), "updated": p["updated"],
+                              "revision": p["revision"], "video_name": p["video_name"], "available": available,
+                              "queue":queue.summary(p['id'])})
+            return items
+
+    def read_srt(upload):
+        raw = upload.file.read(SRT_LIMIT + 1)
+        if len(raw) > SRT_LIMIT:
+            raise ValueError("SRT quá lớn (tối đa 10 MB).")
+        return parse_srt(raw)
+
+    def video_suffix(name):
+        suffix = Path(name or "").suffix.lower()
+        if suffix not in VIDEO_EXTENSIONS:
+            raise ValueError("Định dạng video chưa hỗ trợ.")
+        return suffix
+
+    def project_record(name, id, video_path, video_name, cues, external):
+        info = inspect_video(video_path)
+        selected = next((a for a in info["audio_tracks"] if a["default"]), next(iter(info["audio_tracks"]), None))
+        stat = video_path.stat()
+        return {"id": id, "revision": 1, "name": name, "voice": "Kim Thanh" if "Kim Thanh" in voices else next(iter(voices)),
+                "speed": 1, "auto_fit": True, "fit_limit": 1.6, "background": "duck",
+                "audio_index": selected["index"] if selected else None,
+                "video_name": Path(video_name).name, "video_file": video_path.name,
+                "video_external": external,
+                "video_path": str(video_path.resolve()) if external else None,
+                "video_stat": {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns} if external else None,
+                "media": info, "cues": cues, "pronunciation": get_dictionary()}
 
     @app.post("/api/projects")
     def create(name: str = Form("Lồng tiếng mới"), video: UploadFile = File(...), srt: UploadFile = File(...)):
         if not name.strip() or len(name) > 200:
             raise ValueError("Tên dự án không hợp lệ.")
-        raw = srt.file.read(10 * 1024 * 1024 + 1)
-        if len(raw) > 10 * 1024 * 1024:
-            raise ValueError("SRT quá lớn (tối đa 10 MB).")
-        cues = parse_srt(raw)
+        cues = read_srt(srt)
+        suffix = video_suffix(video.filename)
         id, root = store.create()
         try:
-            suffix = Path(video.filename or "").suffix.lower()
-            if suffix not in (".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"):
-                raise ValueError("Định dạng video chưa hỗ trợ.")
             path = root / ("source" + suffix)
             with path.open("wb") as target:
                 copy_upload(video.file, target)
-            info = inspect_video(path)
-            selected = next((a for a in info["audio_tracks"] if a["default"]), next(iter(info["audio_tracks"]), None))
-            project = {"id": id, "revision": 1, "name": name, "voice": "Kim Thanh" if "Kim Thanh" in voices else next(iter(voices)),
-                       "speed": 1, "auto_fit": True, "fit_limit": 1.6, "background": "duck",
-                       "audio_index": selected["index"] if selected else None,
-                       "video_name": Path(video.filename).name, "video_file": path.name, "media": info, "cues": cues,
-                       "pronunciation": get_dictionary()}
-            return describe(store.save(project))
+            return describe(store.save(project_record(name, id, path, video.filename, cues, False)))
         except Exception:
-            shutil.rmtree(root)
+            shutil.rmtree(root, ignore_errors=True)
             raise
 
-    install_media_browser(app, create)
+    def create_in_place(name, video, raw_srt):
+        """Create a project whose video stays in APP_MEDIA_ROOT; only clips/renders are local."""
+        if not name.strip() or len(name) > 200:
+            raise ValueError("Tên dự án không hợp lệ.")
+        if len(raw_srt) > SRT_LIMIT:
+            raise ValueError("SRT quá lớn (tối đa 10 MB).")
+        cues = parse_srt(raw_srt)
+        video_suffix(video.name)
+        id, root = store.create()
+        try:
+            return describe(store.save(project_record(name, id, video, video.name, cues, True)))
+        except Exception:
+            shutil.rmtree(root, ignore_errors=True)
+            raise
+
+    install_media_browser(app, create, create_in_place)
 
     @app.get("/api/projects/{id}")
     def get(id: str):
-        project = describe(store.get(id))
+        project = store.get(id)
+        warning = ensure_source(project)
+        project = describe(project)
+        project["source_warning"] = warning
         saved = [j for j in jobs.items.values() if j["project"] == id and j["revision"] == project["revision"]]
         project["last_job"] = jobs.public(saved[-1]) if saved else None
         return project
@@ -195,27 +276,47 @@ def create_app(settings=None):
             new_path = None
             try:
                 if srt:
-                    raw = srt.file.read(10 * 1024 * 1024 + 1)
-                    if len(raw) > 10 * 1024 * 1024:
+                    raw = srt.file.read(SRT_LIMIT + 1)
+                    if len(raw) > SRT_LIMIT:
                         raise ValueError("SRT tối đa 10 MB.")
                     p["cues"] = parse_srt(raw)
                 if video:
-                    suffix = Path(video.filename or "").suffix.lower()
-                    if suffix not in (".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"):
-                        raise ValueError("Định dạng video chưa hỗ trợ.")
+                    suffix = video_suffix(video.filename)
                     new_path = store.directory(id) / ("source-" + uuid4().hex + suffix)
                     with new_path.open("wb") as target:
                         copy_upload(video.file, target)
                     info = inspect_video(new_path)
                     selected = next((a for a in info["audio_tracks"] if a["default"]), next(iter(info["audio_tracks"]), None))
                     p.update(video_file=new_path.name, video_name=Path(video.filename).name, media=info,
-                             audio_index=selected["index"] if selected else None)
+                             audio_index=selected["index"] if selected else None,
+                             video_external=False, video_path=None, video_stat=None)
                 p["revision"] += 1
                 return describe(store.save(p, expected=revision))
             except Exception:
                 if new_path:
                     new_path.unlink(missing_ok=True)
                 raise
+
+    @app.post("/api/projects/{id}/source/in-place")
+    def replace_source_in_place(id: str, values: SourcePathRequest):
+        video = resolve_media(values.video)
+        if not video.is_file() or video.suffix.lower() not in VIDEO_EXTENSIONS:
+            raise ValueError("Cần chọn video hợp lệ trong thư mục nguồn.")
+        with jobs.lock:
+            p = store.get(id)
+            if p["revision"] != values.revision:
+                raise Conflict("Dự án đã thay đổi. Mở lại trước khi thay nguồn.")
+            if any(j["project"] == id and j["status"] in ("queued", "running") for j in jobs.items.values()):
+                raise ValueError("Dừng tác vụ trước khi thay nguồn.")
+            info = inspect_video(video)
+            selected = next((a for a in info["audio_tracks"] if a["default"]), next(iter(info["audio_tracks"]), None))
+            stat = video.stat()
+            p.update(video_file=video.name, video_name=video.name, media=info,
+                     audio_index=selected["index"] if selected else None,
+                     video_external=True, video_path=str(video),
+                     video_stat={"size": stat.st_size, "mtime_ns": stat.st_mtime_ns})
+            p["revision"] += 1
+            return describe(store.save(p, expected=values.revision))
 
     @app.delete("/api/projects/{id}")
     def delete(id: str, confirm_queue: bool=False):
@@ -271,6 +372,7 @@ def create_app(settings=None):
     @app.post("/api/projects/{id}/jobs")
     def submit(id: str, request: JobRequest):
         p = store.get(id)
+        ensure_source(p)
         if request.cue_id and not any(c["id"] == request.cue_id for c in p["cues"]):
             raise ValueError("Câu không tồn tại.")
         if request.kind != "generate" and request.cue_id:
@@ -297,9 +399,15 @@ def create_app(settings=None):
     def file(id: str, file: str, download: bool = False):
         p = store.get(id)
         root = store.directory(id).resolve()
-        path = (root / file).resolve()
-        if not path.is_relative_to(root) or not path.is_file() or path.suffix.lower() not in (".mp3", ".mkv", ".mp4", ".mov", ".avi", ".webm", ".m4v", ".wav"):
-            raise HTTPException(404)
+        if p.get("video_external") and file == p["video_file"]:
+            # The in-place source lives outside the project directory; serve only the stored path.
+            path = Path(p.get("video_path") or "")
+            if not path.is_file() or path.suffix.lower() not in VIDEO_EXTENSIONS:
+                raise HTTPException(409, "Không tìm thấy video nguồn của dự án.")
+        else:
+            path = (root / file).resolve()
+            if not path.is_relative_to(root) or not path.is_file() or path.suffix.lower() not in MEDIA_SUFFIXES:
+                raise HTTPException(404)
         if file.startswith("renders/"):
             job_path = path.parent / "job.json"
             if not job_path.exists():

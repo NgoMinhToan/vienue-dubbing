@@ -36,6 +36,8 @@ Dự án dựa trên bộ công cụ [VieNeu-TTS](https://github.com/pnnbao97/Vi
 - Mỗi phiên bản giữ snapshot riêng của nội dung, giọng và lựa chọn xuất.
 - Bắt đầu, dừng, thử lại, chỉnh sửa về dự án gốc, xóa riêng phiên bản.
 - Nguồn có thể upload hoặc chọn từ thư mục server được mount chỉ đọc qua `APP_MEDIA_ROOT`.
+- Video không có giới hạn dung lượng; ứng dụng chỉ dừng khi đĩa không còn đủ chỗ.
+- Khi chọn trong thư mục server, bật **Dùng trực tiếp file** để tham chiếu video tại chỗ, không sao chép vào dự án. Nếu file bị di chuyển hoặc xóa, dự án báo thiếu nguồn và có nút chọn lại file.
 
 ### Thư viện giọng
 
@@ -78,7 +80,6 @@ IMAGE_TAG=latest
 HOST_PORT=8080
 BIND_ADDRESS=127.0.0.1
 MEDIA_DIR=/srv/videos
-APP_MAX_VIDEO_BYTES=10737418240
 APP_MIN_FREE_BYTES=1073741824
 ```
 
@@ -143,12 +144,12 @@ New-Item -ItemType Directory -Force D:/VieNeuData,D:/Videos | Out-Null
 docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7861 --mount type=bind,source=D:/VieNeuData,target=/data --mount type=bind,source=D:/Videos,target=/media,readonly -e APP_MEDIA_ROOT=/media ghcr.io/ngominhtoan/vienue-dubbing:latest
 ```
 
-### Cổng, cache model, thư mục tạm và giới hạn upload riêng
+### Cổng, cache model và thư mục tạm riêng
 
 Các volume tách riêng phải ghi được bởi user chạy ứng dụng (mặc định root):
 
 ```bash
-docker run -d --name vienue-custom -p 127.0.0.1:8080:8080 -v vienue_data:/data -v vienue_models:/models -v vienue_tmp:/worktmp -e APP_HOST=0.0.0.0 -e APP_PORT=8080 -e HF_HOME=/models -e APP_TEMP_DIR=/worktmp -e APP_MAX_VIDEO_BYTES=10737418240 -e APP_MIN_FREE_BYTES=1073741824 ghcr.io/ngominhtoan/vienue-dubbing:latest
+docker run -d --name vienue-custom -p 127.0.0.1:8080:8080 -v vienue_data:/data -v vienue_models:/models -v vienue_tmp:/worktmp -e APP_HOST=0.0.0.0 -e APP_PORT=8080 -e HF_HOME=/models -e APP_TEMP_DIR=/worktmp -e APP_MIN_FREE_BYTES=1073741824 ghcr.io/ngominhtoan/vienue-dubbing:latest
 ```
 
 ### Build image từ mã nguồn
@@ -171,7 +172,6 @@ Image và Compose đã đặt mặc định; không bắt buộc tạo `.env` đ
 | `APP_TEMP_DIR` | `/data/tmp` | File xử lý tạm; cần quyền ghi |
 | `HF_HOME` | `/data/models` | Cache model; lần đầu cần mạng tải model |
 | `APP_MEDIA_ROOT` | `/app` trong image; `/media` trong Compose | Root duyệt file nguồn; mount thư mục host vào đây |
-| `APP_MAX_VIDEO_BYTES` | `21474836480` | Giới hạn upload video: 20 GiB |
 | `APP_MIN_FREE_BYTES` | `536870912` | Dung lượng trống tối thiểu khi nhập video: 512 MiB; xử lý còn kiểm tra dung lượng dự phòng riêng |
 | `FFMPEG_BIN`, `FFPROBE_BIN`, `MKVMERGE_BIN` | Tìm trên PATH | Override executable khi cài công cụ ở vị trí riêng; image đã có đủ |
 | `HF_HUB_OFFLINE` | Không đặt | Đặt `1` khi đã tải đủ model để chạy offline; thiếu cache sẽ báo lỗi |

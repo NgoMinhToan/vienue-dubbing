@@ -2,11 +2,18 @@
 import json
 import shutil
 import threading
+from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Literal
 from .store import Conflict
+
+
+def require_source(project):
+    """Reject queue work whose in-place video is currently unreachable."""
+    if project.get('video_external') and not Path(project.get('video_path') or '').is_file():
+        raise ValueError('Không tìm thấy video nguồn của dự án. Chọn lại nguồn trước khi tạo phiên bản.')
 
 
 class VersionRequest(BaseModel):
@@ -34,6 +41,7 @@ class Queue:
             p=self.store.get(id)
             if p['revision']!=values.revision:
                 raise Conflict('Dự án đã đổi. Nạp lại trước khi tạo phiên bản.')
+            require_source(p)
             if values.kind=='mkv' and p['audio_index'] is None:
                 raise ValueError('Video không có âm gốc. Chọn xuất MP3.')
             with self.store.connection() as db:
@@ -61,6 +69,7 @@ class Queue:
                 raise Conflict('Chỉ bắt đầu được phiên bản đang chờ.')
             self.store.get(item['project'])
             p=json.loads(self.snapshot_path(item).read_text(encoding='utf-8'))
+            require_source(p)
             item.update(status='queued',done=0,warnings=[],message='Đã đưa vào worker CPU.')
             for field in ('skipped_cues','file','preview','reused_mix'):
                 item.pop(field,None)

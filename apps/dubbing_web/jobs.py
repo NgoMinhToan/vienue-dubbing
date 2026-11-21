@@ -102,7 +102,7 @@ class Jobs:
             if job["kind"] == "proxy":
                 job["message"] = "Tạo video xem trước H.264…"
                 audio_map = ["-map", f"0:{project['audio_index']}"] if project["audio_index"] is not None else ["-an"]
-                media.run("ffmpeg", ["-v", "error", "-nostdin", "-y", "-i", root / project["video_file"],
+                media.run("ffmpeg", ["-v", "error", "-nostdin", "-y", "-i", media.source_path(project, root),
                     "-map", f"0:{project['media']['video_index']}", *audio_map,
                     "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-preset", "veryfast",
                     "-crf", "24", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", dest / "proxy.mp4"], job["cancel"])

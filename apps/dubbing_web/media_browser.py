@@ -1,36 +1,46 @@
 """Browse only the configured server media root, including read-only Docker mounts."""
+import io
 import os
 from pathlib import Path
 from fastapi import APIRouter, UploadFile
 from pydantic import BaseModel, Field
 
 VIDEO_EXTENSIONS={'.mp4','.mkv','.mov','.avi','.webm','.m4v'}
+SRT_LIMIT=10*1024*1024
 
 
 class ImportRequest(BaseModel):
     name: str = Field(default='Lồng tiếng mới', min_length=1, max_length=200)
     video: str
     srt: str
+    in_place: bool = False
 
 
-def install_media_browser(app, create):
-    root=Path(os.environ.get('APP_MEDIA_ROOT',Path.cwd())).resolve()
+def media_root():
+    return Path(os.environ.get('APP_MEDIA_ROOT', Path.cwd())).resolve()
+
+
+def resolve_media(relative):
+    """Resolve a relative path inside APP_MEDIA_ROOT, rejecting traversal and symlink escapes."""
+    root=media_root()
+    path=Path(relative)
+    if path.is_absolute() or path.drive:
+        raise ValueError('Chọn đường dẫn tương đối trong thư mục nguồn.')
+    target=(root/path).resolve()
+    if not target.is_relative_to(root):
+        raise ValueError('Đường dẫn nằm ngoài thư mục nguồn được cấu hình.')
+    if not target.exists():
+        raise ValueError('Không tìm thấy file/thư mục nguồn. Kiểm tra APP_MEDIA_ROOT và volume mount.')
+    return target
+
+
+def install_media_browser(app, create, create_in_place):
     router=APIRouter(prefix='/api/media')
-
-    def resolve(relative):
-        path=Path(relative)
-        if path.is_absolute() or path.drive:
-            raise ValueError('Chọn đường dẫn tương đối trong thư mục nguồn.')
-        target=(root/path).resolve()
-        if not target.is_relative_to(root):
-            raise ValueError('Đường dẫn nằm ngoài thư mục nguồn được cấu hình.')
-        if not target.exists():
-            raise ValueError('Không tìm thấy file/thư mục nguồn. Kiểm tra APP_MEDIA_ROOT và volume mount.')
-        return target
 
     @router.get('')
     def browse(path: str='', offset: int=0):
-        folder=resolve(path)
+        root=media_root()
+        folder=resolve_media(path)
         if not folder.is_dir() or offset<0:
             raise ValueError('Thư mục hoặc vị trí trang không hợp lệ.')
         try:
@@ -56,14 +66,24 @@ def install_media_browser(app, create):
 
     @router.post('/import')
     def import_files(values: ImportRequest):
-        video,srt=resolve(values.video),resolve(values.srt)
+        video,srt=resolve_media(values.video),resolve_media(values.srt)
         if not video.is_file() or video.suffix.lower() not in VIDEO_EXTENSIONS or not srt.is_file() or srt.suffix.lower()!='.srt':
             raise ValueError('Cần chọn video và file .srt hợp lệ.')
         try:
+            raw=srt.read_bytes()
+        except PermissionError as exc:
+            raise ValueError('Không có quyền đọc file nguồn.') from exc
+        if len(raw)>SRT_LIMIT:
+            raise ValueError('SRT quá lớn (tối đa 10 MB).')
+        if values.in_place:
+            # Reference the video where it sits; nothing is written to the source mount.
+            return create_in_place(values.name,video,raw)
+        try:
             # Copy into application data through the same validated upload pipeline.
             # A read-only source mount is sufficient and original files are never changed.
-            with video.open('rb') as v,srt.open('rb') as s:
-                return create(values.name,UploadFile(filename=video.name,file=v),UploadFile(filename=srt.name,file=s))
+            with video.open('rb') as v:
+                return create(values.name,UploadFile(filename=video.name,file=v),
+                              UploadFile(filename=srt.name,file=io.BytesIO(raw)))
         except PermissionError as exc:
             raise ValueError('Không có quyền đọc file nguồn.') from exc
 

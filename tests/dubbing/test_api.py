@@ -47,15 +47,19 @@ def test_edit_keeps_original_text(tmp_path):
         assert result.json()['cues'][0]['original_text'] == before
 
 
-def test_upload_limit_keeps_old_video(tmp_path, monkeypatch):
+def test_upload_has_no_size_limit(tmp_path, monkeypatch):
+    # APP_MAX_VIDEO_BYTES is no longer honoured: any size is accepted.
     monkeypatch.setenv('APP_MAX_VIDEO_BYTES', '3')
+    monkeypatch.setattr('apps.dubbing_web.api.inspect_video',
+                        lambda p:{'duration':3,'video_index':0,'video_start':0,'audio_tracks':[],'container':'mp4'})
     app = create_app(Settings(tmp_path))
     with TestClient(app) as client:
         p, root = seed(app)
-        result = client.post('/api/projects/' + p['id'] + '/source', data={'revision':1}, files={'video':('new.mp4', b'too many bytes')})
-        assert result.status_code == 400
-        assert app.state.store.get(p['id'])['video_file'] == 'source.mp4'
-        assert not list(root.glob('source-*'))
+        result = client.post('/api/projects/' + p['id'] + '/source', data={'revision':1}, files={'video':('new.mp4', b'x' * 4096)})
+        assert result.status_code == 200, result.text
+        assert result.json()['video_file'].startswith('source-')
+        assert result.json()['video_external'] is False
+        assert (root / result.json()['video_file']).stat().st_size == 4096
 
 
 def test_cleanup_preserves_source_and_current_outputs(tmp_path):

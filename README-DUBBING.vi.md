@@ -81,7 +81,8 @@ Chi tiết yêu cầu, giai đoạn và quy trình MKV: [Kế hoạch](docs/DUBB
 - Nút **Sửa mốc** nhận số giây bắt đầu/kết thúc; mốc không hợp lệ được báo lỗi.
 - Cảnh báo SRT chồng nhau/vượt video hiển thị dưới vùng xem trước. Lời SRT ban đầu được lưu riêng khi nhập mới; dự án cũ giữ văn bản tại lần sửa đầu sau nâng cấp làm mốc gốc.
 - Với nhiều audio tracks, tạo video tương thích sau khi chọn track để nghe đúng âm gốc trong preview.
-- Giới hạn video mặc định 20 GiB (`APP_MAX_VIDEO_BYTES`); giữ tối thiểu 512 MiB khi lưu nguồn (`APP_MIN_FREE_BYTES`). Job còn dự trù dung lượng PCM theo thời lượng; đây là ước lượng, không đảm bảo mọi tác vụ tránh được hết đĩa.
+- Video không có giới hạn dung lượng; khi lưu nguồn chỉ cần giữ tối thiểu 512 MiB trống (`APP_MIN_FREE_BYTES`). Job còn dự trù dung lượng PCM theo thời lượng; đây là ước lượng, không đảm bảo mọi tác vụ tránh được hết đĩa.
+- Trong trình chọn thư mục server, bật **Dùng trực tiếp file** để dùng video tại chỗ, không sao chép. Dự án chỉ lưu đường dẫn; nếu file mất, dự án báo lỗi và không mở cho đến khi chọn lại nguồn.
 - File trung gian của job được dọn sau khi kết thúc; video nguồn và các bản xuất hoàn chỉnh vẫn được giữ.
 - Kiểm tra CPU offline bằng `HF_HUB_OFFLINE=1` và `python scripts/smoke_dubbing.py` sau khi model đã tải. Phép thử Windows đạt 3,84 giây audio trong 2,81 giây tổng hợp, model load 9,63 giây; chỉ là một câu mẫu.
 - Khi tác vụ bị gián đoạn, mở lại dự án và bấm tạo giọng để tiếp tục các câu thiếu; các WAV đã tạo được dùng lại. Không tự chạy lại tác vụ sau khi mở ứng dụng.
