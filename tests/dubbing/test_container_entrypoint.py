@@ -70,3 +70,12 @@ def test_output_directory_is_handed_to_runtime_user(entrypoint, monkeypatch, tmp
     monkeypatch.setenv("GID", "2345")
     main()
     assert owned == [(tmp_path / "output", 1234, 2345)]
+
+
+def test_output_ownership_is_skipped_without_chown(entrypoint, monkeypatch, tmp_path):
+    # Windows has no os.chown; the entrypoint must still create the directory.
+    main, _, env = entrypoint
+    monkeypatch.delattr(env, "chown", raising=False)
+    monkeypatch.setenv("UID", "1234")
+    main()
+    assert (tmp_path / "output").is_dir()
