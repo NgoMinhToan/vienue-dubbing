@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 from uuid import uuid4
 from urllib.parse import urlparse
@@ -394,6 +395,50 @@ def create_app(settings=None):
                 item.update(status='cancelled',message='Đã hủy tác vụ đang chờ.')
                 jobs.persist(item)
         return {"ok": True}
+
+    def output_root():
+        return Path(settings.output or os.environ.get("APP_OUTPUT_DIR", "/app/output")).resolve()
+
+    def safe_stem(name):
+        stem = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "-", name)
+        stem = re.sub(r"\s+", " ", stem).strip(" .")
+        return stem[:120] or "du-an"
+
+    @app.post("/api/jobs/{id}/save")
+    def save_output(id: str):
+        """Copy a completed MP3/MKV export into APP_OUTPUT_DIR without overwriting files."""
+        item = jobs.items[id]
+        if item.get("status") != "complete" or item.get("kind") not in ("mp3", "mkv") or not item.get("file"):
+            raise ValueError("Chỉ lưu được bản xuất MP3/MKV đã hoàn tất.")
+        project = store.get(item["project"])
+        root = store.directory(item["project"]).resolve()
+        source = (root / item["file"]).resolve()
+        if not source.is_relative_to(root / "renders") or not source.is_file():
+            raise HTTPException(409, "Bản xuất không còn trên máy. Hãy xuất lại.")
+        if not item.get("version") and item["revision"] != project["revision"]:
+            raise ValueError("Bản xuất không còn khớp với dự án. Hãy xuất lại.")
+        destination = output_root()
+        try:
+            destination.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValueError(f"Không tạo được thư mục lưu {destination}. Kiểm tra quyền ghi hoặc APP_OUTPUT_DIR.") from exc
+        stem = safe_stem(project["name"])
+        suffix = ".mkv" if item["kind"] == "mkv" else ".mp3"
+        base = f"{stem}-v{item['version']}" if item.get("version") else f"{stem}-{item['id'][:6]}"
+        for number in range(1, 10000):
+            name = base + (f"-{number}" if number > 1 else "") + suffix
+            target = (destination / name).resolve()
+            if target.parent != destination:
+                raise ValueError("Tên file không hợp lệ.")
+            try:
+                with source.open("rb") as data, target.open("xb") as saved:
+                    shutil.copyfileobj(data, saved)
+            except FileExistsError:
+                continue
+            except OSError as exc:
+                raise ValueError(f"Không ghi được file vào {destination}.") from exc
+            return {"name": name, "path": str(target), "bytes": target.stat().st_size}
+        raise ValueError("Quá nhiều bản trùng tên. Hãy dọn thư mục lưu.")
 
     @app.get("/api/projects/{id}/files/{file:path}")
     def file(id: str, file: str, download: bool = False):

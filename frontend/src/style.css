@@ -800,6 +800,18 @@ main {
   color: white;
   border-radius: 6px;
 }
+.save-server {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: 1px solid #5b4a7e;
+  border-radius: 6px;
+  background: transparent;
+  color: #cbb6f5;
+}
+.save-server:hover:not(:disabled) { background: #2a2340; }
+.save-result { color: #9fdcb4; }
 .modal-overlay {
   position: fixed;
   inset: 0;
