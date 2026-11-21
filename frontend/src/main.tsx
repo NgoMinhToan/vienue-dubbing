@@ -21,6 +21,7 @@ import {
   FolderOpen,
   AlertTriangle,
   RefreshCw,
+  Save,
 } from "lucide-react";
 import "./style.css";
 import VoiceLibrary from "./VoiceLibrary";
@@ -157,6 +158,7 @@ function App() {
     [busy, setBusy] = useState(false),
     [dirty, setDirty] = useState(false),
     [job, setJob] = useState<Job | null>(null),
+    [saveMessage, setSaveMessage] = useState(""),
     [menu, setMenu] = useState<"queue" | "export" | null>(null),
     [selected, setSelected] = useState(""),
     [time, setTime] = useState(0),
@@ -329,6 +331,7 @@ function App() {
     try {
       setError("");
       setBusy(true);
+      setSaveMessage("");
       const p = await save();
       if (!p) return;
       setPreview(false);
@@ -358,6 +361,7 @@ function App() {
       setSelected("");
       setPreview(false);
       setVideoFailed(false);
+      setSaveMessage("");
     } catch (e) {
       setError((e as Error).message);
     }
@@ -365,6 +369,19 @@ function App() {
   function file(path: string, download = false) {
     const encoded = path.split("/").map(encodeURIComponent).join("/");
     return `/api/projects/${project?.id}/files/${encoded}${download ? "?download=true" : ""}`;
+  }
+  async function saveToServer() {
+    if (!job) return;
+    try {
+      setBusy(true);
+      setSaveMessage("");
+      const saved = await api<{name:string;bytes:number}>(`/jobs/${job.id}/save`, {method:"POST"});
+      setSaveMessage(`Đã lưu ${saved.name} (${(saved.bytes / 1024 / 1024).toFixed(1)} MB)`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
   async function replaceSource(kind: "video" | "srt", chosen?: File) {
     if (!chosen) return;
@@ -1177,10 +1194,17 @@ function App() {
                   </>
                 )}
                 {validOutput && (
-                  <a className="download" href={file(job.file!, true)}>
-                    <Download size={15} />
-                    Tải {job.kind.toUpperCase()}
-                  </a>
+                  <>
+                    <a className="download" href={file(job.file!, true)}>
+                      <Download size={15} />
+                      Tải {job.kind.toUpperCase()}
+                    </a>
+                    <button className="save-server" disabled={busy} onClick={() => void saveToServer()}>
+                      <Save size={15} />
+                      Lưu vào server
+                    </button>
+                    {saveMessage && <span className="save-result">{saveMessage}</span>}
+                  </>
                 )}
               </div>
             )}

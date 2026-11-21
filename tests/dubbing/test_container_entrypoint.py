@@ -5,11 +5,12 @@ import pytest
 
 
 @pytest.fixture
-def entrypoint(monkeypatch):
+def entrypoint(monkeypatch, tmp_path):
     main = runpy.run_path(str(Path(__file__).resolve().parents[2] / "docker/entrypoint.py"))["main"]
     env = main.__globals__["os"]
     monkeypatch.delenv("UID", raising=False)
     monkeypatch.delenv("GID", raising=False)
+    monkeypatch.setenv("APP_OUTPUT_DIR", str(tmp_path / "output"))
     monkeypatch.setattr(env, "geteuid", lambda: 0, raising=False)
     monkeypatch.setattr(env, "getegid", lambda: 0, raising=False)
     calls = []
@@ -53,3 +54,19 @@ def test_conflicting_docker_user_stops_startup(entrypoint, monkeypatch):
     with pytest.raises(SystemExit, match="1"):
         main()
     assert calls == []
+
+
+def test_output_directory_is_created(entrypoint, tmp_path):
+    main, _, _ = entrypoint
+    main()
+    assert (tmp_path / "output").is_dir()
+
+
+def test_output_directory_is_handed_to_runtime_user(entrypoint, monkeypatch, tmp_path):
+    main, _, env = entrypoint
+    owned = []
+    monkeypatch.setattr(env, "chown", lambda path, uid, gid: owned.append((Path(path), uid, gid)), raising=False)
+    monkeypatch.setenv("UID", "1234")
+    monkeypatch.setenv("GID", "2345")
+    main()
+    assert owned == [(tmp_path / "output", 1234, 2345)]

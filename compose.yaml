@@ -11,6 +11,7 @@ services:
       APP_TEMP_DIR: /data/tmp
       HF_HOME: /data/models
       APP_MEDIA_ROOT: /media
+      APP_OUTPUT_DIR: /app/output
       APP_MIN_FREE_BYTES: ${APP_MIN_FREE_BYTES:-536870912}
       PYTHONUTF8: "1"
     volumes:
@@ -19,5 +20,8 @@ services:
         source: ${MEDIA_DIR:-.}
         target: /media
         read_only: true
+      - type: bind
+        source: ${OUTPUT_DIR:-./output}
+        target: /app/output
 volumes:
   dubbing_data:

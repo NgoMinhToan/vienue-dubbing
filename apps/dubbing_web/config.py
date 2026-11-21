@@ -12,6 +12,7 @@ class Settings:
     data: Path
     host: str = "127.0.0.1"
     port: int = 7861
+    output: Path | None = None
 
     @classmethod
     def from_env(cls):
@@ -20,7 +21,8 @@ class Settings:
         temporary = Path(os.environ.get("APP_TEMP_DIR", data / "tmp")).resolve()
         temporary.mkdir(parents=True, exist_ok=True)
         tempfile.tempdir = str(temporary)
-        return cls(data, os.environ.get("APP_HOST", "127.0.0.1"), int(os.environ.get("APP_PORT", "7861")))
+        output = Path(os.environ.get("APP_OUTPUT_DIR", "/app/output")).resolve()
+        return cls(data, os.environ.get("APP_HOST", "127.0.0.1"), int(os.environ.get("APP_PORT", "7861")), output)
 
 
 def executable(name: str) -> str:

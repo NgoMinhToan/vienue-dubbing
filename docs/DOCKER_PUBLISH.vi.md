@@ -38,6 +38,17 @@ docker run --rm -p 127.0.0.1:7861:7861 -v dubbing-data:/data --mount type=bind,s
 
 Trên PowerShell dùng `--mount "type=bind,source=D:\Videos,target=/media,readonly"`. Mount nguồn chỉ cần quyền đọc; `/data` cần quyền ghi cho user chạy ứng dụng. Mặc định image chạy root nếu không đặt `UID` và `GID`. Để chạy user riêng, thêm `-e UID=1000 -e GID=1000` và chuẩn bị quyền thư mục host tương ứng; nếu chỉ đặt một biến, phần còn thiếu mặc định 1000. Image không tự chown dữ liệu. Bỏ `command: []` trong Compose để dùng lệnh khởi động mặc định. Mặc định file được sao chép vào data khi tạo dự án, nên cần dự phòng dung lượng. Bật **Dùng trực tiếp file** để không sao chép; khi đó dự án tham chiếu đường dẫn trong `/media`, nên file phải còn ở đúng vị trí mỗi lần mở (có thể chọn lại nếu mount đổi). Chỉ hỗ trợ một root duyệt file mỗi instance, nhưng có thể mount nhiều thư mục host làm các thư mục con bên dưới root đó.
 
+## Lưu bản xuất ra thư mục host
+
+Nút **Lưu vào server** cạnh nút Tải copy MP3/MKV đã xuất vào `APP_OUTPUT_DIR` (mặc định `/app/output`). Mount một thư mục host vào đó để file không mất khi tạo lại container:
+
+```sh
+mkdir -p /home/user/output
+docker run --rm -p 127.0.0.1:7861:7861 -v dubbing-data:/data --mount type=bind,source=/home/user/videos,target=/media,readonly --mount type=bind,source=/home/user/output,target=/app/output -e APP_MEDIA_ROOT=/media -e APP_OUTPUT_DIR=/app/output ghcr.io/ngominhtoan/vienue-dubbing:edge
+```
+
+Compose mặc định mount `${OUTPUT_DIR:-./output}` vào `/app/output`. Khi đặt `UID`/`GID`, entrypoint tạo thư mục trước khi hạ quyền và chown cho user runtime. Bản lưu không ghi đè file cũ; tên trùng được thêm `-2`, `-3`.
+
 CLI dùng cùng API (đường dẫn tương đối theo root server, không phải đường dẫn máy chạy CLI):
 
 ```sh

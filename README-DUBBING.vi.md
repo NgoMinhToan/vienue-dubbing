@@ -23,7 +23,7 @@ Trình duyệt mở tại http://127.0.0.1:7861. Để dừng, nhấn Ctrl+C tro
 2. Chọn giọng chung, bấm **Nghe mẫu giọng chung** rồi phát mẫu khi tạo xong; sửa văn bản, giọng hoặc tốc độ riêng từng câu nếu cần. Thay đổi tự lưu sau khoảng 1,2 giây.
 3. Tạo giọng tất cả hoặc từng câu. Nghe câu bằng nút phát; chọn câu hoặc timeline để tua video.
 4. Chọn cách trộn âm gốc. Nếu có nhiều track gốc, chọn đúng track trước khi xuất.
-5. Chọn **Tải về → MP3** hoặc **MKV hai track**. Xem trước sử dụng bản âm thanh đã trộn; lần bấm đầu khi chưa có bản xuất sẽ tạo bản MP3.
+5. Chọn **Tải về → MP3** hoặc **MKV hai track**. Xem trước sử dụng bản âm thanh đã trộn; lần bấm đầu khi chưa có bản xuất sẽ tạo bản MP3. Cạnh nút Tải, nút **Lưu vào server** copy bản xuất vào `APP_OUTPUT_DIR` (mặc định `/app/output`) và tự thêm hậu tố nếu trùng tên.
 6. Trong bảng Tải về, checkbox **Cho phát tiếp câu tràn** được tích mặc định: giữ câu tràn và chấp nhận chồng lời. Bỏ tích để bỏ qua toàn bộ lời lồng của câu vẫn tràn sau giới hạn tăng tốc; không cắt riêng phần đuôi. Cả hai chế độ đều xuất thẳng, không hỏi lại. Kết quả báo các câu bị bỏ qua; câu khác và nền giữ theo lựa chọn hiện tại.
 
 Tăng tốc tự động sử dụng khoảng trống tới câu tiếp theo. Giới hạn tăng thêm nhân với tốc độ đã chọn, tổng tốc độ không vượt 3×. Câu cuối sử dụng khoảng trống tới hết video. Không dời các câu sau và không cắt mất phần cuối lời đọc.
@@ -34,11 +34,12 @@ MKV xuất có đúng hai audio tracks: **Original** (track gốc được chọ
 
 - `data/projects.sqlite3`: dự án và trạng thái chỉnh sửa.
 - `data/projects/`: video nguồn, cache từng câu và các bản xuất.
+- Bản lưu bằng **Lưu vào server** nằm ngoài dự án, tại `APP_OUTPUT_DIR` (mặc định `/app/output`); cleanup và xóa phiên bản không đụng tới các file này.
 - `data/models/`: model tải về; `data/tmp/`: tệp tạm.
 - Sao lưu cả thư mục `data` khi server đã dừng.
 - Tạo lại câu hoặc sửa nội dung làm bản xuất cũ không còn dùng cho dự án hiện tại; cần xuất lại.
 
-Các biến môi trường: `APP_HOST` (mặc định `127.0.0.1`), `APP_PORT` (`7861`), `APP_DATA_DIR`, `APP_TEMP_DIR`, `HF_HOME`, `FFMPEG_BIN`, `FFPROBE_BIN`, `MKVMERGE_BIN`, `MKVEXTRACT_BIN`. Đường dẫn không phụ thuộc ký tự ổ đĩa Windows.
+Các biến môi trường: `APP_HOST` (mặc định `127.0.0.1`), `APP_PORT` (`7861`), `APP_DATA_DIR`, `APP_TEMP_DIR`, `APP_OUTPUT_DIR` (`/app/output`), `HF_HOME`, `FFMPEG_BIN`, `FFPROBE_BIN`, `MKVMERGE_BIN`, `MKVEXTRACT_BIN`. Đường dẫn không phụ thuộc ký tự ổ đĩa Windows.
 
 ## Docker / Linux
 

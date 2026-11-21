@@ -27,6 +27,7 @@ Dự án dựa trên bộ công cụ [VieNeu-TTS](https://github.com/pnnbao97/Vi
 - Âm gốc: nhỏ lại và duck khi có lời, giữ nguyên và duck, giữ nguyên hoàn toàn, rất nhỏ hoặc tắt.
 - Chọn giữ câu tràn (chấp nhận chồng nhau) hoặc bỏ qua câu đó trước khi xuất.
 - Video không có audio gốc vẫn xuất MP3; MKV hai track cần có audio gốc. Nhiều audio gốc: chọn một track để giữ.
+- Cạnh nút **Tải**, nút **Lưu vào server** copy bản xuất vào `APP_OUTPUT_DIR` (mặc định `/app/output`) mà không ghi đè file cũ; tên trùng được thêm `-2`, `-3`.
 
 ### Hàng đợi phiên bản và nguồn cục bộ
 
@@ -71,7 +72,7 @@ docker compose logs -f
 
 Mở **http://127.0.0.1:7861**. File `compose.yaml` ở thư mục gốc giữ dữ liệu trong named volume `dubbing_data` và mount thư mục hiện hành vào `/media` chỉ đọc.
 
-### Compose: tùy chọn cổng, nguồn video và dung lượng
+### Compose: tùy chọn cổng, nguồn video, thư mục lưu và dung lượng
 
 Tạo `.env` cạnh `compose.yaml`:
 
@@ -80,6 +81,7 @@ IMAGE_TAG=latest
 HOST_PORT=8080
 BIND_ADDRESS=127.0.0.1
 MEDIA_DIR=/srv/videos
+OUTPUT_DIR=./output
 APP_MIN_FREE_BYTES=1073741824
 ```
 
@@ -131,17 +133,17 @@ docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7
 ### Mount dữ liệu và video riêng trên Linux
 
 ```bash
-mkdir -p /srv/vienue-data /srv/videos
-docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7861 --mount type=bind,source=/srv/vienue-data,target=/data --mount type=bind,source=/srv/videos,target=/media,readonly -e APP_MEDIA_ROOT=/media ghcr.io/ngominhtoan/vienue-dubbing:latest
+mkdir -p /srv/vienue-data /srv/videos /srv/vienue-output
+docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7861 --mount type=bind,source=/srv/vienue-data,target=/data --mount type=bind,source=/srv/videos,target=/media,readonly --mount type=bind,source=/srv/vienue-output,target=/app/output -e APP_MEDIA_ROOT=/media -e APP_OUTPUT_DIR=/app/output ghcr.io/ngominhtoan/vienue-dubbing:latest
 ```
 
-Container mặc định chạy root khi không đặt `UID` và `GID`, nên bind mount thông thường không cần chown trước. Muốn chạy bằng user riêng, đặt `UID=1000`, `GID=1000` trong environment và cấp quyền ghi thư mục dữ liệu cho user đó. Nếu chỉ đặt một biến, biến còn thiếu mặc định `1000`. Image không tự đổi owner file trên host. `/media` chỉ cần quyền đọc; ứng dụng không sửa/xóa bản nguồn. Docker `--user` cũng được hỗ trợ; tránh đặt UID/GID khác với `--user`.
+Container mặc định chạy root khi không đặt `UID` và `GID`, nên bind mount thông thường không cần chown trước. Muốn chạy bằng user riêng, đặt `UID=1000`, `GID=1000` trong environment và cấp quyền ghi thư mục dữ liệu cho user đó; entrypoint tạo và chown `/app/output` cho user này. Nếu chỉ đặt một biến, biến còn thiếu mặc định `1000`. Image không tự đổi owner file trên host. `/media` chỉ cần quyền đọc; ứng dụng không sửa/xóa bản nguồn. Docker `--user` cũng được hỗ trợ; tránh đặt UID/GID khác với `--user`.
 
 ### Windows Docker Desktop (Linux containers)
 
 ```powershell
-New-Item -ItemType Directory -Force D:/VieNeuData,D:/Videos | Out-Null
-docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7861 --mount type=bind,source=D:/VieNeuData,target=/data --mount type=bind,source=D:/Videos,target=/media,readonly -e APP_MEDIA_ROOT=/media ghcr.io/ngominhtoan/vienue-dubbing:latest
+New-Item -ItemType Directory -Force D:/VieNeuData,D:/Videos,D:/VieNeuOutput | Out-Null
+docker run -d --name vienue-dubbing --restart unless-stopped -p 127.0.0.1:7861:7861 --mount type=bind,source=D:/VieNeuData,target=/data --mount type=bind,source=D:/Videos,target=/media,readonly --mount type=bind,source=D:/VieNeuOutput,target=/app/output -e APP_MEDIA_ROOT=/media -e APP_OUTPUT_DIR=/app/output ghcr.io/ngominhtoan/vienue-dubbing:latest
 ```
 
 ### Cổng, cache model và thư mục tạm riêng
@@ -172,6 +174,7 @@ Image và Compose đã đặt mặc định; không bắt buộc tạo `.env` đ
 | `APP_TEMP_DIR` | `/data/tmp` | File xử lý tạm; cần quyền ghi |
 | `HF_HOME` | `/data/models` | Cache model; lần đầu cần mạng tải model |
 | `APP_MEDIA_ROOT` | `/app` trong image; `/media` trong Compose | Root duyệt file nguồn; mount thư mục host vào đây |
+| `APP_OUTPUT_DIR` | `/app/output` | Thư mục nhận bản xuất khi bấm **Lưu vào server**. Compose mount `${OUTPUT_DIR:-./output}` vào đây; cần quyền ghi |
 | `APP_MIN_FREE_BYTES` | `536870912` | Dung lượng trống tối thiểu khi nhập video: 512 MiB; xử lý còn kiểm tra dung lượng dự phòng riêng |
 | `FFMPEG_BIN`, `FFPROBE_BIN`, `MKVMERGE_BIN` | Tìm trên PATH | Override executable khi cài công cụ ở vị trí riêng; image đã có đủ |
 | `HF_HUB_OFFLINE` | Không đặt | Đặt `1` khi đã tải đủ model để chạy offline; thiếu cache sẽ báo lỗi |

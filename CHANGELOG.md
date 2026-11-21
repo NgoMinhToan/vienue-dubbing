@@ -3,6 +3,7 @@
 ## Unreleased — 2026-09-14–15
 
 ### WebUI và media
+- Thêm **Lưu vào server** cạnh nút Tải: copy bản xuất MP3/MKV vào `APP_OUTPUT_DIR` (mặc định `/app/output`), không ghi đè, tự thêm hậu tố khi trùng tên; Compose mount `${OUTPUT_DIR:-./output}` và entrypoint chown thư mục khi chạy UID/GID.
 - Bỏ giới hạn dung lượng video 20 GiB (`APP_MAX_VIDEO_BYTES`); chỉ còn kiểm tra dung lượng đĩa trống khi lưu nguồn.
 - Trình chọn thư mục server hiện icon folder/video/SRT, dung lượng từng file và đánh dấu file đang chọn.
 - Tùy chọn **Dùng trực tiếp file**: video được tham chiếu tại chỗ, không sao chép vào dự án. File mất hoặc đổi được phát hiện khi mở; file mất thì chặn mở và cho chọn lại nguồn trong thư mục server.
